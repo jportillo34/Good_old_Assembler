@@ -1,3 +1,1 @@
-## DOS operating system type device driver.
-
-It used a recursive subrutine to navigate through all disc's sectors.
+## Some peaces of code i used early on 1980's - 1990's
