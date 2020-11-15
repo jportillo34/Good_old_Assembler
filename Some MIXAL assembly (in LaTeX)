@@ -1,0 +1,555 @@
+%
+%-------------------------------------------------------------------------------------------------%
+% Artículo escrito en LaTeX - como ensayo y modelo de uso de distintas composiciones matematicas. %
+%                                                                                                 %
+% Importante observar:                                                                            %
+%                     la traduccion de formulacion matematica en meta-expresiones en TeX; implica %
+%                     linealizar expresiones matematicas (del mismo modo que se hace en lenguajes %
+%                     de programacion tradicionales como FORTRAN.                                 %
+%                                                                                                 %
+% Autor: José Portillo Lugo, Diciembre 2012                                                       %
+%-------------------------------------------------------------------------------------------------%
+%
+\documentclass [a4paper,10pt]{article}
+
+%
+%-------------------------%
+% Declaración de paquetes %
+%-------------------------%
+%
+\usepackage{graphicx}
+\usepackage{clrscode3e}
+\usepackage{fancybox}
+\usepackage{amssymb,amsmath}   % Paquetes AMS_TEX (de American Mathematical Society)
+\usepackage{pseudocode}
+
+%
+%----------------------------------%
+% Definición de formatos generales %
+%----------------------------------%
+%
+\parindent0pt                  % Hacer los párrafos cuadrados.
+\parskip1pt                    %
+
+\setlength{\topmargin}{-.1in}
+\setlength{\oddsidemargin}{0in}
+\setlength{\evensidemargin}{0in}
+\setlength{\textwidth}{6.0in}
+\setlength{\textheight}{9in}
+\renewcommand{\refname}{\underline{Referencias}}
+\renewcommand{\figurename{Figura}}
+
+%
+%--------------------------------%
+% Inicio del documento           %
+%--------------------------------%
+%
+\begin{document}
+
+%
+%------------------------------------------------------------------------------------------%
+% Título y resumen del texto                                                               %
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath" %
+%------------------------------------------------------------------------------------------%
+%
+\title{BREVE RECUERDO DEL LENGUAJE DE PROGRAMACI\'ON\\
+        \texttt{MIXAL}}
+
+\author{Jos\'e Portillo Lugo\thanks{por publicar.}\\
+     Historia de la computaci\'on\\
+	 \texttt{jportillo34@yahoo.com}}
+
+\date{Diciembre 5, 2012}
+
+\maketitle
+
+\begin{abstract}
+    Breve ejemplo (homenaje) a la maquina MIX del profesor Knuth.
+\end{abstract}
+
+\vspace{5 mm}
+
+\begin{quote}
+   \begin{flushright}
+      \textit{And now I see with eye serene}\\
+      \textit{The very pulse of the machine.}\\
+      - William Wordsworth, She Was a Phantom of Delight (1804)\\
+      (tomada de Fundamental Algorithms - Knuth, Donald E. - 1973)\\
+   \end{flushright}
+\end{quote}
+\\
+
+%
+%-----------------------------%
+% Inicio del cuerpo del texto %
+%-----------------------------%
+%
+Hace 27 a\~nos yo era un estudiante de segundo semestre de computaci\'on sin m\'as
+conocimiento sobre las materias en curso. Por supuesto, para ese entonces (mediados de la
+d\'ecada de los 1980) la computaci\'on ten\'ia casi seis d\'ecadas de antiguedad como
+disciplina, sobre todo la programaci\'on de computadoras. D\'ecadas de historia que yo ignoraba
+completamente. Fue en esa \'epoca que escuch\'e hablar por primera vez sobre un texto de programación
+de computadoras llamado \textit{The Art of Computer Programming}.
+Su autor era el Prof. Donald Knuth, un matem\'atico quien hab\'ia dedicado gran parte de su
+vida a dise\~nar traductores de lenguajes de alto nivel y assemblers durante los a\~nos 1960. Sus habilidades
+y destrezas las adquir\'o estudando listados assembler de compiladores recientes (para la \'epoca) que usaban
+en el instituto Case donde cursaba estudios universitarios. Uno de esos traductores era el \texttt{IT} (Internal Translator). \\
+\\
+
+Knuth narr\'o su primer encuentro con este programa traductor en una \emph{IBM 650}:\\
+\\
+
+\begin{quote}
+   \textit{In this program you would punch on cards a algebraic formula. You would say, A = B + C.
+           Well, in IT, you had to say, X1 = X2 + X4. Because you didnt have a plus sign, you had to say, A for
+           the plus sign. So you had to say, X1 Z X2 A X4. No, S, I guess, was plus, and A was for absolute
+           value. But anyway, we had to encode algebra in terms of a small character set, a few letters. There
+           werent that many characters you could punch on a card. You punch this thing on a card, and you feed
+           the card into the machine. The lights spin around for a few seconds and then -- punch, punch, punch,
+           punch -- out come machine language instructions that set X1 equal to X2 + X4. Automatic programming
+           coming out of an algebraic formula. Well, this blew my mind. I couldnt understand how this was
+           possible, to do this miracle where I had just these punches on the card. I could understand how to write a
+           program to factor numbers, but I couldnt understand how to write a program that would convert algebra
+           into machine instructions.} \cite{Knuth4}
+\end{quote}\\
+\\
+
+%
+% Ejemplo de uso del paquete "clrscode3e"
+%
+\begin{codebox}
+   \Procname{$\proc{Insertion-Sort}(A)$}
+   \li \For $j \gets 2$ \To $\attrib{A}{length}$
+   \li \Do
+          $\id{key} \gets A[j]$
+          \li \Comment Insert $A[j]$ into the sorted sequence
+          $A[1 \twodots j-1]$.
+          \li $i \gets j-1$
+          \li \While $i > 0$ and $A[i] > \id{key}$
+          \li \Do
+                 $A[i+1] \gets A[i]$
+                 \li $i \gets i-1$
+          \End
+          \li $A[i+1] \gets \id{key}$
+   \End
+\end{codebox}
+\\
+Esta es una matriz:\\
+\\
+\begin{pmatrix} D_1t&-a_{12}t_2&\dots&-a_{1n}t_n\\
+                -a_{21}t_1&D_2t&\dots&-a_{2n}t_n\\
+                \hdotsfor[2]{4}\\
+                -a_{n1}t_1&-a_{n2}t_2&\dots&D_nt
+\end{pmatrix}
+\\
+Y su codigo en AMS LaTeX es:\\
+\\
+\begin{verbatim}
+\begin{pmatrix} D_1t&-a_{12}t_2&\dots&-a_{1n}t_n\\
+                -a_{21}t_1&D_2t&\dots&-a_{2n}t_n\\
+                \hdotsfor[2]{4}\\
+                -a_{n1}t_1&-a_{n2}t_2&\dots&D_nt
+\end{pmatrix}
+\end{verbatim}
+\\
+Ejemplo de uso de comandos TeX (no LaTeX) - ejemplo sacado del libro "The TeXBOOK" de Knuth - 1983.\\
+(aqui se demuestra que LaTeX tambien procesa texto y comandos directos de TeX.\\
+\\
+{\obeylines \sfcode`;=3000
+   {\bf for $j:=2$ step $1$ until $n$ do}
+        \quad {\bf begin} 
+                   \qquad ${\it accum}:=A[j]$; $k:=j-1$; $A[0]:=\it accum$;
+                   \qquad {\bf while $A[k]>\it accum$ do}
+                              \qquad {\bf begin} 
+                                     \qquad\qquad $A[k+1]:=A[k]$; $k:=k-1$;
+                              \qquad {\bf end};
+                   \qquad $A[k+1]:=\it accum$;
+        \quad {\bf end}.\par}
+\\
+Y su codigo en TEX puro es:\\
+\\
+\begin{verbatim}
+{\obeylines \sfcode`;=3000
+   {\bf for $j:=2$ step $1$ until $n$ do}
+        \quad {\bf begin}
+                   \qquad ${\it accum}:=A[j]$; $k:=j-1$; $A[0]:=\it accum$;
+                   \qquad {\bf while $A[k]>\it accum$ do}
+                              \qquad {\bf begin}
+                                     \qquad\qquad $A[k+1]:=A[k]$; $k:=k-1$;
+                              \qquad {\bf end};
+                   \qquad $A[k+1]:=\it accum$;
+        \quad {\bf end}.\par}
+\end{verbatim}
+\\
+\begin{pseudocode}{TemperatureTable}{lower, upper}
+\PROCEDURE{CelsiusToFahrenheit}{c}
+f \GETS {9c/5} + 32\\
+\RETURN{f}
+\ENDPROCEDURE
+\MAIN
+x \GETS lower \\
+\WHILE x \leq upper \DO
+\BEGIN
+\OUTPUT{x, \CALL{CelsiusToFahrenheit}{x}}\\
+x \GETS x+1
+\END
+\ENDMAIN
+\end{pseudocode}
+\\
+\renewcommand{\thepseudonum}{\roman{pseudonum}}
+\begin{pseudocode}{MergeSort}{n,X}
+\label{MergeSort}
+\COMMENT{Sort the array $X$ of length $n$}\\
+\IF n=2 \THEN
+\BEGIN
+\IF X[0]>X[1] \THEN
+\BEGIN
+T \GETS X[0]\\
+X[0]\GETS X[1]\\
+X[1]\GETS T
+\END
+\END
+\ELSEIF n>2 \THEN
+\BEGIN
+m\GETS \lfloor n/2 \rfloor\\
+\FOR i\GETS 0 \TO m-1 \DO A[i] \GETS X[i]\\
+\FOR i\GETS m \TO n-1 \DO B[i] \GETS X[i]\\
+\COMMENT{Now sort the subarrays $A$ and $B$}\\
+\CALL{MergeSort}{m,A}\\
+\CALL{MergeSort}{n-m,B}\\
+i\GETS 0\\
+j\GETS 0\\
+\FOR k \GETS 0 \TO n-1 \DO
+\BEGIN
+\IF A[i] \leq B[j] \THEN
+\BEGIN
+X[k]\GETS A[i] \STMTNUM{1in}{st.1}\\
+i\GETS i+1
+\END
+\ELSE
+\BEGIN
+X[k]\GETS B[j] \STMTNUM{1.03in}{st.2}\\
+j\GETS j+1
+\END
+\END
+\END
+\end{pseudocode}
+\\
+\begin{pseudocode}[ruled]{SquareAndMultiply}{x,b,n}
+\COMMENT{ Compute $x^b \pmod{n}$}\\
+z\GETS 1\\
+\WHILE b > 0 \DO
+\BEGIN
+z \GETS z^2 \pmod{n} \\
+\IF b\mbox{ is odd}
+\THEN z \GETS z \cdot x \pmod{n} \\
+b \GETS \CALL{ShiftRight}{b}
+\END\\
+\RETURN{z}
+\end{pseudocode}
+\\
+Los libros de Knuth eran considerados como dif\'iciles para el estudio. En verdad, a simple vista
+con toda la formulaci\'on matem\'atica contenida en el cap\'itulo introductorio del texto no es
+extra\~no que se tomara como literatura inpenetrable y vasta para usar como texto de uso b\'asico. Esta
+impresi\'on inicial, posteriormente me trajo una contradicci\'on. A trav\'es de los a\~nos conoc\'i
+como el libro de Knuth fue usado como texto b\'asico en la Universidad Central de Venezuela durante
+la primera parte de la d\'ecada de 1970 para la c\'atedra Laboratorio de Computaci\'on I. Aqu\'i hay
+dos puntos fundamentales que entend\'i: lo primero es sentir que hab\'ia yo llegado tarde al oficio
+de la programaci\'on de computadoras; lo segundo es el ambiente de rechazo que ya a partir de la d\'ecada de los 1980
+se sent\'ia en relaci\'on a la programaci\'on antigua (hermosa y artesana, pudieramos decir) con lenguaje
+Assembler y c\'odigos de m\'aquina. Posiblemente estoy equivocado pero era mi percepci\'on.\\
+En mi caso, el volumen 2 (Seminumerical Algorithms) ha sido un libro de cabecera.\\
+\\
+\begin{equation}\label{e:barwq}\begin{split}
+H_c&=\frac{1}{2n} \sum^n_{l=0}(-1)^{l}(n-{l})^{p-2}
+\sum_{l _1+\dots+ l _p=l}\prod^p_{i=1} \binom{n_i}{l _i}\\
+&\quad\cdot[(n-l )-(n_i-l _i)]^{n_i-l _i}\cdot
+\Bigl[(n-l )^2-\sum^p_{j=1}(n_i-l _i)^2\Bigr].
+\end{split}\end{equation}\\
+%
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath"
+%
+\[
+   \sum_{j \in \mathbf{N}} b_{ij} \hat{y}_{j} =
+   \sum_{j \in \mathbf{N}} b^{(\lambda)}_{ij} \hat{y}_{j} +
+   (b_{ii} - \lambda_{i}) \hat{y}_{i} \hat{y} \label{ecu1}
+\]\\
+
+
+%
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath"
+%
+\[
+   \frac{ \sqrt{ \mu(i)^{ \frac{3}{2}} (i^{2} -1) } }
+   { \sqrt[3]{\rho(i) - 2} + \sqrt[3]{\rho(i) - 1} } \label{ecu2}
+\]\\
+
+\\
+Para el caso del Teorema del Binomio\\
+%
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath"
+%
+\centerline{$(x+y)^r = \sum_{k}x^ky^{r-k}$} \label{ecu3}\\
+La descripci\'on era detallada y el autor hac\'ia una excelente rese\~na hist\'orica.\\
+
+El lenguaje con que se programaban y mostraban los algoritmos en ese libro era el assembler \texttt{MIXAL}.
+Para ese entonces yo conoc\'ia a penas dos lenguajes assembler: el del microprocesador Zilog Z-80 y el del Commodore 64.
+Sin embargo, con \texttt{MIXAL} aprend\'i otro tipo de instrucciones y de directivas al assembler que eran ejemplares de la
+programaci\'on ya perdida en el pasado de los a\~nos 1960. Muchos de los llamados "assembleristas" que a\'un viven en nuestro pa\'is estudiaron y
+aprendieron con \texttt{MIXAL}.\\
+\\
+
+%
+% Ejemplo de uso del paquete "clrscode3e"
+%
+\begin{codebox}
+   \Procname{$\proc{Hash-Insert}(T,k)$}
+      \li $i \gets 0$
+      \li \Repeat
+         \li $j \gets h(k,i)$
+         \li \If $T[j] \isequal \const{nil}$
+         \li \Then
+            $T[j] \gets k$
+            \li \Return $j$
+         \li \Else
+            $i \gets i+1$
+         \End
+      \li \Until $i \isequal m$
+      \li \Error ‘‘hash table overflow’’
+\end{codebox}\\
+
+\newcommand{\keyw}[1]{{\bf #1}}
+\begin{tabbing}
+   \quad \=\quad \=\quad \kill
+   \keyw{for} each $x$ \keyw{do} \\
+   \> \keyw{if} extension$(p, x)$ \\
+   \> \> \keyw{then} $E:=E\cup\{x\}$\\
+   \keyw{return} $E$
+\end{tabbing}\\
+
+%
+% Este es un ejemplo de uso del paquete "graphicx" (las imágenes deben ser creadas como archivos ".pdf")
+%
+\begin{figure}[h]
+   \begin{center}
+      \setlength\unitlength{-1mm}
+      \includegraphics[scale=0.40]{invitation.pdf} \end{center}
+   \caption{Donald Knuth}
+\end{figure}
+\\
+
+Knuth se bas\'o mucho en computadoras decimales (no binarias) con memoria din\'amica de tambor (Drum machines)
+como la Burroughs 205 \cite{Burr}, la Burroughs 220 y la IBM 650. La palabra de datos de la m\'aquina \texttt{MIX}
+es de cinco (5) grupos de d\'igitos decimales y signo ($\pm AAAAIIFFCC$) igual que las computadoras antes indicadas.
+Nem\'onicos assembler como LDA, STZ, SUB y ADD son comunes entre la m\'aquina \texttt{MIX} y la IBM 7090 al igual que el
+uso de registros como A y X. Instrucciones como ADD y STA tambi\'en est\'an presentes en la IBM 704.\\
+\\La combinaci\'on de dos registros\\
+\\
+
+\centerline{$\pm A1A2A3A4A5  \pm X1X2X3X4X5$}\\
+
+\\para su utilizaci\'on en multiplicaciones y divisiones, es similar en las computadoras Burroughs e IBM de la \'epoca.\\
+\\
+El uso de directivas al assembler como END (para se\~nalar el final de un programa y al mismo tiempo indicar la etiqueta
+que identifica el comienzo del mismo) fue tomada, parcialmente modificada, del assembler para la IBM System/360.\\
+\\
+
+%
+% Este es un ejemplo de uso del paquete "graphicx" (las imágenes deben ser creadas como archivos ".pdf")
+%
+\begin{figure}[h]
+   \begin{center}
+      \includegraphics[scale=0.40]{burroughs_220.pdf} \end{center}
+   \caption{Computadora decimal Burroughs 220}
+\end{figure}
+\\
+
+A mediados de la d\'ecada de 1960, las t\'ecnicas de compilaci\'on\/traducci\'on y manejo de lenguajes (t\'ecnicas de programaci\'on)
+se encontraban muy elaboradas; casi como las conocemos hoy d\'ia.\\
+\\
+
+%
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath"
+%
+\[
+   \binom{a}{b + c} \binom{\frac{n^{2} - 1}{2}}{n + 1} \label{ecu4}
+\]\\
+
+Este a\~no (2012) tuve la oportunidad de compartir informaci\'on con varios amigos (Jos\'e Márquez, Rafael Messana),
+ex-alumnos de la escuela de computaci\'on de la Universidad Central de Venezuela durante la primera parte de la d\'ecada de 1970.
+En la c\'atedra Laboratorio de Computación I utilizaban un simulador de la m\'aquina \texttt{MIX}, conjuntamente con un assembler
+\texttt{MIXAL}, posiblemente el mismo desarrollado por el propio Knuth en la Universidad de Stanford \cite{Knuth3}.
+Todo este software era procesado en una IBM/360 instalada en Pro-Venezuela (zona rental de Plaza Venezuela).
+Buenos recuerdos. Lamento mucho que el oficio de programador, hoy d\'ia, se haya transformado en algo refractario y repetitivo,
+buscando m\'as el quitar y poner componentes, no la creatividad de otrora al dise\~nar algoritmos y luego entender los intr\'insecos
+del set de instrucciones de una m\'aquina como \texttt{MIX} para luego codificar las instrucciones cuidadosamente seleccionadas
+en funci\'on a la eficiencia (tiempo de ejecuci\'on y espacio de memoria). Toda una labor de artesan\'ia.\\
+\\
+%
+% Este es un ejemplo de uso del paquete "graphicx" (las imágenes deben ser creadas como archivos ".pdf")
+%
+\begin{figure}[h]
+   \begin{center}
+      \includegraphics[scale=0.40]{MIX_Sim_360.pdf} \end{center}
+   \caption{Fragmento de programa de simulador MIX en assembler IBM 360 - secci\'on Cicle
+            - se trata de una reproducci\'on casi fiel del simulador del Volumen 1 del texto de Knuth (resalta el uso de la instrucci\'on Branch and Count hoy ´d\'ia poco usada en programaci\'on assembler del MVS o VSE)\cite{Akers1}}
+\end{figure}
+\\
+%
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath"
+%
+\begin{align} \label{E:longInt}
+   h(x) &= \int
+   \left(
+         \frac{ f(x) + g(x) }
+         { 1+ f^{2}(x) }
+         + \frac{ 1+ f(x)g(x) }
+         { \sqrt{1 - \sin x} }
+   \right) \, dx\\
+   &= \int \frac{ 1 + f(x) }
+   { 1 + g(x) }
+   \, dx - 2 \tan^{-1}(x-2) \notag
+\end{align} \label{ecu5}\\
+\\
+
+%
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath"
+%
+\begin{equation}
+   f(x)=
+         \begin{cases}
+            -x^{2}, &\text{if $x < 0$;}\\
+            \alpha + x, &\text{if $0 \leq x \leq 1$;}\\
+            x^{2}, &\text{otherwise.}
+         \end{cases} \label{ecu6}
+\end{equation}
+
+\\
+Para finalizar esta breve memoria incluyo un ejemplo de traducci\'on (compilaci\'on) manual desde un mini programa originalmente
+escrito en lenguaje C++ hacia el Assembler \texttt{MIXAL}, y desde ese lenguaje intermedio hacia instrucciones de la
+m\'aquina \texttt{MIX}. Se trata de un ejercicio en nostalgia. Los sistemas de programaci\'on actuales, con todo su set de
+librer\'ias API, la necesidad de asociar y enlazar objetos (con relaciones de herencia), y preprocesamiento complejo (como el caso
+del lenguaje C y sus derivados), producen una cantidad adicional de c\'odigo andamiaje para manejo interno.
+La traducci\'on hacia \texttt{MIXAL} la hice manualmente, tal como lo hac\'ia hace 25 años como ejercicio: de izquierda a derecha
+aparece la instrucci\'on de m\'aquina \texttt{MIX}, seguida de la direcci\'on en la memoria hipot\'etica y finalizando con
+la sentencia Assembler \texttt{MIXAL}.\\
+
+%
+% ejemplo de uso de los paquetes de la American Mathematical Society "amssymb" y "amsmath"
+%
+\begin{equation}
+   \Re{z} = \frac{n\pi \dfrac{\theta +\psi}{2}}{
+                  \left(\dfrac{\theta +\psi}{2}\right)^2 + \left( \dfrac{1}{2}
+                  \log \left\lvert\dfrac{B}{A}\right\rvert\right)^2}. \label{ecu7}
+\end{equation}
+
+\\
+Segu\'i la convenci\'on tomada por algunos compiladores de Lenguaje C con los cuales trabaj\'e a lo largo de los a\~nos, en cuanto
+a la generaci\'on de c\'odigo para ciclos constantes como el FOR. El ejemplo es muy simple pero sirve como muestra
+del uso de registros \'indice como contadores descendientes (al estilo de la instrucci\'on de decremento autom\'atico BCT de la
+IBM System/360).\\
+
+%
+% Ensayo de tabbing para la escritura de codigo en assembler.
+%
+\begin{verbatim}
+Codigo MIX     DIR  Sentencia assembler MIXAL
+-------------- ---- -------------------------------------------------------------------
+                              ORIG  000
++0000 00 00 00 0000 TASA      CON   0
+               0049           ORIG  49
+               0050 STK       ORIG  *+1       Stack de trabajo
+               0052 RESUL     ORIG  *+2       Declaración de simbolos
+               0054 PORC      ORIG  *+2
+               0056 X         ORIG  *+2
+               0058 TEMP      ORIG  *+2
+               0060 Z         ORIG  *+2
+               0062 Y         ORIG  *+2
+               0064 BUFFCRD   ORIG  *+2       Buffer de entrada/salida
+*
+                    I         EQU   1         Se optimiza el uso de I y J,
+                    J         EQU   2         usando los registros rI1 y rI2
+                    CARDRD    EQU   16        Unidad Lectora - Tarjetas
+                    CARDWR    EQU   17        Unidad Perforadora - Tarjetas
+*
+                              ORIG  100       Subrutina - calculo
++0128 00 02 32 0100 FOREXPR   STJ   5F        Establece enlace de la Subrutina
++0052 00 05 33 0101           STZ   RESUL     resul <-- 0
++0001 00 02 49 0102           ENT1  1         i <-- 1
++0008 00 02 50 0103           ENT2  8         j <-- 8
++0002 00 02 55 0104           ENTX  2
++0060 00 05 31 0105           STX   X         x <-- 2
++0003 00 02 55 0106           ENTX  3
++0066 00 05 31 0107           STX   Y         y <-- 3
++0025 00 02 55 0108           ENTX  25
++0064 00 05 31 0109           STX   Z         z <-- 2
++0058 00 05 08 0110           LDA   0,2       j
++0060 00 05 03 0111           MUL   X         x
++0005 00 02 06 0112           SLAX  5
++0054 00 05 24 0113           STA   TEMP      j*x
++0064 00 05 08 0114           LDA   Z         z
++0066 00 05 03 0115           MUL   Y         y
++0005 00 02 06 0116           SLAX  5         z*y
++0062 00 05 01 0117           ADD   TEMP      <-- j*x+z*y
++0052 00 05 24 0118           STA   RESUL
++0126 00 00 39 0119           JMP   4F        Evalua condiciones
++0052 00 05 08 0120 3H        LDA   RESUL     Inicio del ciclo
++0000 00 05 03 0121           MUL   TASA
++0005 00 02 06 0122           SLAX  5
++0100 00 05 04 0123           DIV   100       <-- (resul*tasa)/100
++0054 00 05 24 0124           STA   PORC
++0001 00 01 49 0125           DEC1  1         i--
++0128 00 07 39 0126 4H        J1Z   5F        Termina el ciclo
++0120 00 00 39 0127           JMP   3B        Continua el ciclo
++0001 00 00 39 0128 5H        JMP   *         Enlace de retorno - Subrutina
+*
+                              ORIG  500       Cuerpo principal del programa
++0001 00 02 32 0500 MAIN      STJ   END       Establece enlace - Sistema Operativo NIX
++0000 00 05 33 0501           STZ   TASA
++0054 00 05 33 0502           STZ   PORC
++0053 00 16 34 0503           JBUS  *(CARDRD) Espera por Lectora - Tarjetas
++0067 00 16 36 0504           IN    BUFFCRD(CARDRD) Lectura
++0067 00 02 55 0505           LDX   BUFFCRD
++0000 00 05 15 0506           STX   TASA      Tasa para el calculo
++0100 00 00 39 0507           JMP   FOREXPR   Invoca Subrutina
++0054 00 05 15 0508           LDX   PORC      RX <-- porc
++0067 00 05 31 0509           STX   BUFFCRD   Almacena en buffer salida
++0510 00 17 34 0510           JBUS  *(CARDWR) Espera por perforadora - Tarjetas
++0067 00 17 37 0511           OUT   BUFFCRD(CARDWR) Perfora
++0000 00 02 05 0512           HLT             Enlace de retorno - Sistema Operativo NIX
+                              END   MAIN
+\end{verbatim}
+\\
+\page
+* Fuente en lenguaje C++ simplificado:                                                        \\
+{\obeylines \sfcode`;=3000
+{\bf void main()}
+\{ // Cuerpo principal del programa
+\qquad {\bf int} ${\it tas}=0$, ${\it porc}=0$;\\
+
+\qquad ${\it tas} = getchar()$;
+\qquad forexpr({\it tas}, {\it &porc});
+\qquad putchar({\it &porc});
+\}
+
+{\bf void forexpr}(int tasa, int &porcen)
+\{ // Subrutina - cálculo
+\qquad {\bf int} $i=1$, $j=8$, $resul=0$, $x=2$, $y=3$, $z=25$;\\
+
+\qquad {\bf for}($resul=j*x+z*y&, $porcen=0$; $i \geq 1$; $porcen=(resul*tasa)/100$, i--);
+\}
+\par}
+%
+%----------------------------%
+% Referencias bibliográficas %
+%----------------------------%
+%
+\begin{thebibliography}{7}
+\bibitem{Knuth1} Knuth, Donald E. \textit{The Art of Computer Programming, Vol. 1 Fundamental Algorithms}, 1973.
+\bibitem{Knuth2} Knuth, Donald E. \textit{3-TRAN Interpreter Compiler source listing}, 1964.
+\bibitem{Knuth3} Knuth, Donald E., Sites R. L. \textit{MIX/360 Users Guide}, 1971.
+\bibitem{Knuth4} Computer Museum. \textit{Oral History of Donald Knuth}, 2007.
+\bibitem{Akers1} Akers, Max Neil. \textit{A Proposed Programming System for Knuth MIX Computer}, 1969.
+\bibitem{Burr} Burroughs. \textit{Burroughs 205 Electronic Data Processing Systems Handbook}, 1957.
+\end{thebibliography}
+\end{document}
