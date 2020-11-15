@@ -1,0 +1,947 @@
+;
+;       AQUI EL DISE¥O DETALLADO DE CADA PROCEDIMIENTO O MODULO
+;           DEL PROGRAMA SE MEZCLA CON EL CODIGO ASSEMBLER
+;                    PARA UNA MEJOR DESCRIPCION
+;                        ( Pseudo Pascal )
+;
+;
+;                 MODULO DE CONTROL PARA EL SISTEMA
+;                     DE LLAMADA A SUPERVISOR
+;                     =======================
+;                   MICROCONTROLADOR  PIC 16c56
+;
+;
+;                     DISE¥O E IMPLEMENTACION
+;                        Jose  R. Portillo
+;      Dpto. Investiguaci¢n y Desarrollo, XXXXXXXXXXXXXXXXXXX c.a. 1994
+;
+SALIDA  EQU     4
+ST      EQU     0
+Tx      EQU     1
+Rx      EQU     2
+SCL     EQU     1
+SDA     EQU     2
+TOUT    EQU     3
+PACONF  EQU     0x04
+PA0     EQU     5
+PBCONF  EQU     0x07
+RTCC    EQU     1
+STATUS  EQU     3
+PORTA   EQU     5
+PORTB   EQU     6
+TX      EQU     .66
+ALL     EQU     .67
+NUMAX   EQU     .11       ; numero maximo de modulos + 1
+NUMERO  EQU     8
+ANOTA   EQU     9
+CONT    EQU     0x0A
+COUNTL  EQU     0x0B
+COUNTH  EQU     0x0C
+DATO_1  EQU     0x0D
+STATION EQU     0x0E
+VARIAB  EQU     0x0F
+COMANDO EQU     0x10
+POOL    EQU     0x11
+BEEPER  EQU     0x12
+NUMOD   EQU     0x13
+RXSTAT  EQU     0x14
+BANDERA EQU     0x15
+PIC56   EQU     0x3FF
+;
+;    Constantes para la transferencia de datos tipo RS-232 en el BTDP
+;  Velocidad de transferencia = 1200 bps; Aprox. 832us por bit
+;            ****  Velocidad del oscilador = 12Mhz  ****
+;
+RTRD0   EQU     .255
+RTRD1   EQU     .160
+RTRD2   EQU      .64
+
+
+        ORG     0
+LLAMADA ;
+        ; bit RB3 del puerto B := 0
+        ; medseg()
+        ; bit RB3 del puerto B := 1
+        ; comando := digito de decena del numero de beeper
+        ; beepcom()
+        ; medseg()
+        ; comando := digito de unidad del numero de beeper
+        ; beepcom()
+        ; medseg()
+        ; comando := numero de pool
+        ; beepcom()
+        ; medseg()
+        ; comando := TX
+        ; beepcom()
+        ; medseg()
+        ; count := 0 { contador de 16 bits }
+        ; REPEAT
+        ;    rtcc := 0
+        ;    bit RTS del option register := 0
+        ;    REPEAT
+        ;    UNTIL rtcc XOR $FF = 0
+        ;    count := count + 1 { incremento de 16 bits }
+        ; UNTIL count = $CEB8
+        ; bit RB3 del puerto B := 0
+        ; medseg()
+        ; bit RB3 del puerto B := 1
+        ; count := 0 { contador de 16 bits }
+        ; REPEAT
+        ;    rtcc := 0
+        ;    bit RTS del option register := 0
+        ;    REPEAT
+        ;    UNTIL rtcc XOR $FF = 0
+        ;    count := count + 1 { incremento de 16 bits }
+        ; UNTIL count = $675C
+        ;
+        BCF     PORTB,3
+        BSF     STATUS,PA0
+        CALL    MEDSEG
+        BCF     STATUS,PA0
+        BSF     PORTB,3
+        SWAPF   BEEPER
+        MOVF    BEEPER,W
+        SWAPF   BEEPER
+        ANDLW   0x0F
+        MOVWF   COMANDO
+        CALL    BEEPCOM
+        BSF     STATUS,PA0
+        CALL    MEDSEG
+        BCF     STATUS,PA0
+        MOVF    BEEPER,W
+        ANDLW   0x0F
+        MOVWF   COMANDO
+        CALL    BEEPCOM
+        BSF     STATUS,PA0
+        CALL    MEDSEG
+        BCF     STATUS,PA0
+        MOVF    POOL,W
+        MOVWF   COMANDO
+        CALL    BEEPCOM
+        BSF     STATUS,PA0
+        CALL    MEDSEG
+        BCF     STATUS,PA0
+        MOVLW   TX
+        MOVWF   COMANDO
+        CALL    BEEPCOM
+        BSF     STATUS,PA0
+        CALL    MEDSEG
+        BCF     STATUS,PA0
+        CLRF    COUNTL
+        CLRF    COUNTH
+S5SEG01 CLRF    RTCC
+        CLRW
+        OPTION
+S5RTC   MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    S5RTC
+        MOVLW   1
+        ADDWF   COUNTL
+        MOVLW   0xB8
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    S5CAR_1
+        BTFSS   STATUS,0
+        GOTO    S5SEG03
+        INCF    COUNTH
+S5SEG03 MOVLW   0xCE
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    S5CAR_1
+        GOTO    LLAMA_X
+S5CAR_1 BTFSS   STATUS,0
+        GOTO    S5SEG01
+        INCF    COUNTH
+        MOVLW   0xB8
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    S5SEG01
+        MOVLW   0xCE
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    S5SEG01
+LLAMA_X BCF     PORTB,3
+        BSF     STATUS,PA0
+        CALL    MEDSEG
+        BCF     STATUS,PA0
+        BSF     PORTB,3
+        CLRF    COUNTL
+        CLRF    COUNTH
+SEG_01  CLRF    RTCC
+        CLRW
+        OPTION
+RTCICL1 MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    RTCICL1
+        MOVLW   1
+        ADDWF   COUNTL
+        MOVLW   0x5C
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    CARRY_1
+        BTFSS   STATUS,0
+        GOTO    SEG_03
+        INCF    COUNTH
+SEG_03  MOVLW   0x67
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    CARRY_1
+        GOTO    SEG_02
+CARRY_1 BTFSS   STATUS,0
+        GOTO    SEG_01
+        INCF    COUNTH
+        MOVLW   0x5C
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    SEG_01
+        MOVLW   0x67
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    SEG_01
+SEG_02  RETLW   0
+
+
+BEEPCOM ;
+        ;    IF comando = 0 THEN comando := $19
+        ;    ELSE IF comando = 1   THEN comando := $8C
+        ;    ELSE IF comando = 2   THEN comando := $4C
+        ;    ELSE IF comando = 3   THEN comando := $2C
+        ;    ELSE IF comando = 4   THEN comando := $1C
+        ;    ELSE IF comando = 5   THEN comando := $8A
+        ;    ELSE IF comando = 6   THEN comando := $4A
+        ;    ELSE IF comando = 7   THEN comando := $89
+        ;    ELSE IF comando = 8   THEN comando := $49
+        ;    ELSE IF comando = 9   THEN comando := $29
+        ;    ELSE IF comando = TX  THEN comando := $2A
+        ;    ELSE IF comando = ALL THEN comando := $1A
+        ;    FOR anota := 1 TO 5 DO
+        ;    BEGIN
+        ;       REPEAT
+        ;       UNTIL puerto B XOR (comando AND $0F) = 1
+        ;       puerto B := comando AND $F8
+        ;       REPEAT
+        ;       UNTIL puerto B AND $07 = 0
+        ;       puerto B := 0
+        ;    END
+        ;
+        MOVF    COMANDO,W
+        ANDLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    NO_CERO
+        MOVLW   0x19
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_CERO MOVF    COMANDO,W
+        XORLW   1
+        BTFSS   STATUS,2
+        GOTO    NO_UNO
+        MOVLW   0x8C
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_UNO  MOVF    COMANDO,W
+        XORLW   2
+        BTFSS   STATUS,2
+        GOTO    NO_DOS
+        MOVLW   0x4C
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_DOS  MOVF    COMANDO,W
+        XORLW   3
+        BTFSS   STATUS,2
+        GOTO    NO_TRES
+        MOVLW   0x2C
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_TRES MOVF    COMANDO,W
+        XORLW   4
+        BTFSS   STATUS,2
+        GOTO    NO_CUAT
+        MOVLW   0x1C
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_CUAT MOVF    COMANDO,W
+        XORLW   5
+        BTFSS   STATUS,2
+        GOTO    NO_CINC
+        MOVLW   0x8A
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_CINC MOVF    COMANDO,W
+        XORLW   6
+        BTFSS   STATUS,2
+        GOTO    NO_SEIS
+        MOVLW   0x4A
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_SEIS MOVF    COMANDO,W
+        XORLW   7
+        BTFSS   STATUS,2
+        GOTO    NO_SIET
+        MOVLW   0x89
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_SIET MOVF    COMANDO,W
+        XORLW   8
+        BTFSS   STATUS,2
+        GOTO    NO_OCHO
+        MOVLW   0x49
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_OCHO MOVF    COMANDO,W
+        XORLW   9
+        BTFSS   STATUS,2
+        GOTO    NO_NUEV
+        MOVLW   0x29
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_NUEV MOVF    COMANDO,W
+        XORLW   TX
+        BTFSS   STATUS,2
+        GOTO    NO_TX
+        MOVLW   0x2A
+        MOVWF   COMANDO
+        GOTO    NO_ALL
+NO_TX   MOVF    COMANDO,W
+        XORLW   ALL
+        BTFSS   STATUS,2
+        GOTO    BEEPFIN
+        MOVLW   0x1A
+        MOVWF   COMANDO
+NO_ALL  MOVLW   1
+        MOVWF   ANOTA
+FOR_DO  MOVF    COMANDO,W
+        ANDLW   7
+        MOVWF   VARIAB
+        MOVF    PORTB,W
+        ANDLW   7
+        XORWF   VARIAB,W
+        BTFSS   STATUS,2
+        GOTO    FOR_DO
+        MOVF    COMANDO,W
+        ANDLW   0xF8
+        MOVWF   PORTB
+UNTL_1  MOVF    PORTB,W
+        ANDLW   7
+        BTFSS   STATUS,2
+        GOTO    UNTL_1
+        MOVLW   0x08
+        MOVWF   PORTB
+        INCF    ANOTA
+        MOVF    ANOTA,W
+        XORLW   5
+        BTFSS   STATUS,2
+        GOTO    FOR_DO
+BEEPFIN RETLW   0
+
+
+MAIN_CONTROL
+        ;
+        ; prepara el puerto A
+        ; prepara el puerto B
+        ; bit TOUT del puerto A := 0
+        ; bit st   del puerto A := 1
+        ; bit Tx   del puerto A := 1
+        ; bit RB3  del puerto B := 1
+        ; count := 0 { contador de 16 bits }
+        ; REPEAT { espera de arranque del sistema }
+        ;    rtcc := 0
+        ;    bit RTS del option register := 0
+        ;    REPEAT
+        ;    UNTIL rtcc XOR $FF = 0
+        ;    count := count + 1 { incremento de 16 bits }
+        ; UNTIL count = $44E8
+        ; FOR siempre
+        ; BEGIN
+        ;    FOR numod := 1 TO numax DO
+        ;    BEGIN
+        ;       numero := $55 { inicio de peticion }
+        ;       transmision()
+        ;       numero := $AA
+        ;       transmision()
+        ;       numero := numod { numero del modulo }
+        ;       transmision()
+        ;       rxstat := 0
+        ;       count := 0
+        ;       REPEAT { espera por reconocimiento }
+        ;          rtcc := 0
+        ;          bit RTS del option register := 0
+        ;          REPEAT
+        ;          UNTIL rtcc XOR $FF = 0
+        ;          IF bit Rx = 0 THEN
+        ;          BEGIN
+        ;             recepcion()
+        ;             rxstat := 1
+        ;             BREAK
+        ;          END
+        ;          count := count + 1
+        ;       UNTIL count = 255
+        ;       IF rxstat = 0 THEN --> pasa al siguiente modulo
+        ;       IF numero <> numod THEN --> pasa al siguiente modulo
+        ;       rxstat := 0
+        ;       count := 0
+        ;       REPEAT { espera por el status de la llamada }
+        ;          rtcc := 0
+        ;          bit RTS del option register := 0
+        ;          REPEAT
+        ;          UNTIL rtcc XOR $FF = 0
+        ;          IF bit Rx = 0 THEN
+        ;          BEGIN
+        ;             recepcion()
+        ;             status de llamada := numero
+        ;             BREAK
+        ;          END
+        ;          count := count + 1
+        ;       UNTIL count = 255
+        ;       IF rxstat = 0 THEN --> pasa al siguiente modulo
+        ;       IF status de llamada <> 0 THEN { hay llamada pendiente? }
+        ;       BEGIN
+        ;          beeper := 1
+        ;          IF numod = 1 THEN pool := 1
+        ;          ELSE IF (numod = 2) OR (numod = 3) THEN pool := 2
+        ;          ELSE IF numod = 4 THEN pool := 3
+        ;          ELSE IF (numod = 5) OR (numod = 6) THEN pool := 4
+        ;          ELSE IF numod = 7  THEN pool := 5
+        ;          ELSE IF numod = 8  THEN
+        ;          BEGIN
+        ;             pool := 6
+        ;             beeper := 2
+        ;          END
+        ;          ELSE IF numod = 9  THEN
+        ;          BEGIN
+        ;             pool := 7
+        ;             beeper := 2
+        ;          END
+        ;          ELSE IF numod = 10 THEN
+        ;          BEGIN
+        ;             pool := 8
+        ;             beeper := 2
+        ;          END
+        ;          llamada()
+        ;       END
+        ;       count := 0 { contador de 16 bits }
+        ;       REPEAT
+        ;          rtcc := 0
+        ;          bit RTS del option register := 0
+        ;          REPEAT
+        ;          UNTIL rtcc XOR $FF = 0
+        ;          count := count + 1 { incremento de 16 bits }
+        ;       UNTIL count = $0C00
+        ;    END
+        ; END
+        ;
+        MOVLW   PACONF
+        TRIS    PORTA
+        MOVLW   PBCONF
+        TRIS    PORTB
+        BCF     PORTA,TOUT
+        BSF     PORTA,ST
+        BSF     PORTA,Tx
+        BSF     PORTB,3
+        CLRF    COUNTL
+        CLRF    COUNTH
+ARRANQ1 CLRF    RTCC
+        CLRW
+        OPTION
+ARRANQ2 MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    ARRANQ2
+        MOVLW   1
+        ADDWF   COUNTL
+        MOVLW   0xE8
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    ARRANQ4
+        BTFSS   STATUS,0
+        GOTO    ARRANQ3
+        INCF    COUNTH
+ARRANQ3 MOVLW   0x44
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    ARRANQ4
+        GOTO    FOR_00
+ARRANQ4 BTFSS   STATUS,0
+        GOTO    ARRANQ1
+        INCF    COUNTH
+        MOVLW   0xE8
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    ARRANQ1
+        MOVLW   0x44
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    ARRANQ1
+FOR_00  MOVLW   1
+        MOVWF   NUMOD
+FOR_01  MOVLW   0x55
+        MOVWF   NUMERO
+        BSF     STATUS,PA0
+        CALL    TRANSMISION
+        BCF     STATUS,PA0
+        MOVLW   0xAA
+        MOVWF   NUMERO
+        BSF     STATUS,PA0
+        CALL    TRANSMISION
+        BCF     STATUS,PA0
+        MOVF    NUMOD,W
+        MOVWF   NUMERO
+        BSF     STATUS,PA0
+        CALL    TRANSMISION
+        BCF     STATUS,PA0
+        CLRF    RXSTAT
+        CLRF    COUNTL
+REPEAT1 CLRF    RTCC
+        CLRW
+        OPTION
+MINREP1 MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    MINREP1
+        BTFSC   PORTA,Rx
+        GOTO    FOR_02
+        BSF     STATUS,PA0
+        CALL    RECEPCION
+        BCF     STATUS,PA0
+        INCF    RXSTAT
+        GOTO    FOR_03
+FOR_02  INCF    COUNTL
+        MOVLW   .255
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    REPEAT1
+FOR_03  MOVF    RXSTAT
+        BTFSC   STATUS,2
+        GOTO    FOR_0X
+        MOVF    NUMERO,W
+        XORWF   NUMOD,W
+        BTFSS   STATUS,2
+        GOTO    FOR_0X
+        CLRF    RXSTAT
+        CLRF    COUNTL
+REPEAT4 CLRF    RTCC
+        CLRW
+        OPTION
+MINREP4 MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    MINREP4
+        BTFSC   PORTA,Rx
+        GOTO    FOR_08
+        BSF     STATUS,PA0
+        CALL    RECEPCION
+        BCF     STATUS,PA0
+        INCF    RXSTAT
+        GOTO    FOR_09
+FOR_08  INCF    COUNTL
+        MOVLW   .255
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    REPEAT4
+FOR_09  MOVF    RXSTAT
+        BTFSC   STATUS,2
+        GOTO    FOR_0X
+        MOVF    NUMERO,W
+        ANDLW   0xFF
+        BTFSC   STATUS,2
+        GOTO    FOR_0X
+        MOVLW   1
+        MOVWF   BEEPER
+        MOVF    NUMOD,W
+        XORLW   1
+        BTFSS   STATUS,2
+        GOTO    IF_01
+        MOVLW   1
+        MOVWF   POOL
+        GOTO    IF_0X
+IF_01   MOVF    NUMOD,W
+        XORLW   2
+        BTFSS   STATUS,2
+        GOTO    IF_02
+        GOTO    IF_03
+IF_02   MOVF    NUMOD,W
+        XORLW   3
+        BTFSS   STATUS,2
+        GOTO    IF_04
+IF_03   MOVLW   2
+        MOVWF   POOL
+        GOTO    IF_0X
+IF_04   MOVF    NUMOD,W
+        XORLW   4
+        BTFSS   STATUS,2
+        GOTO    IF_05
+        MOVLW   3
+        MOVWF   POOL
+        GOTO    IF_0X
+IF_05   MOVF    NUMOD,W
+        XORLW   5
+        BTFSS   STATUS,2
+        GOTO    IF_06
+        GOTO    IF_07
+IF_06   MOVF    NUMOD,W
+        XORLW   6
+        BTFSS   STATUS,2
+        GOTO    IF_08
+IF_07   MOVLW   4
+        MOVWF   POOL
+        GOTO    IF_0X
+IF_08   MOVF    NUMOD,W
+        XORLW   7
+        BTFSS   STATUS,2
+        GOTO    IF_09
+        MOVLW   5
+        MOVWF   POOL
+        GOTO    IF_0X
+IF_09   MOVF    NUMOD,W
+        XORLW   8
+        BTFSS   STATUS,2
+        GOTO    IF_10
+        MOVLW   6
+        MOVWF   POOL
+        MOVLW   2
+        MOVWF   BEEPER
+        GOTO    IF_0X
+IF_10   MOVF    NUMOD,W
+        XORLW   9
+        BTFSS   STATUS,2
+        GOTO    IF_11
+        MOVLW   7
+        MOVWF   POOL
+        MOVLW   2
+        MOVWF   BEEPER
+        GOTO    IF_0X
+IF_11   MOVF    NUMOD,W
+        XORLW   .10
+        BTFSS   STATUS,2
+        GOTO    IF_0X
+        MOVLW   8
+        MOVWF   POOL
+        MOVLW   2
+        MOVWF   BEEPER
+IF_0X   CALL    LLAMADA
+FOR_0X  CLRF    COUNTL
+        CLRF    COUNTH
+SEG_01P CLRF    RTCC
+        CLRW
+        OPTION
+RTCICL1P
+        MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    RTCICL1P
+        MOVLW   1
+        ADDWF   COUNTL
+        MOVLW   0x00
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    CARRY_1P
+        BTFSS   STATUS,0
+        GOTO    SEG_03P
+        INCF    COUNTH
+SEG_03P MOVLW   0x0C
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    CARRY_1P
+        GOTO    SEG_02P
+CARRY_1P
+        BTFSS   STATUS,0
+        GOTO    SEG_01P
+        INCF    COUNTH
+        MOVLW   0x00
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    SEG_01P
+        MOVLW   0x0C
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    SEG_01P
+
+SEG_02P INCF    NUMOD
+        MOVLW   NUMAX
+        XORWF   NUMOD,W
+        BTFSS   STATUS,2
+        GOTO    FOR_01
+        GOTO    FOR_00
+
+
+        ORG     0x200
+MEDSEG  ;
+        ;    count := 0 { contador de 16 bits }
+        ;    REPEAT { espera de 1/2seg }
+        ;       rtcc := 0
+        ;       bit RTS del option register := 0
+        ;       REPEAT
+        ;       UNTIL rtcc XOR $FF = 0
+        ;       count := count + 1 { incremento de 16 bits }
+        ;    UNTIL count = $0C00
+        ;
+        CLRF    COUNTL
+        CLRF    COUNTH
+MDSEG01 CLRF    RTCC
+        CLRW
+        OPTION
+RTCMD1  MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    RTCMD1
+        MOVLW   1
+        ADDWF   COUNTL
+        MOVLW   0x00
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    MDCAR_1
+        BTFSS   STATUS,0
+        GOTO    MDSEG03
+        INCF    COUNTH
+MDSEG03 MOVLW   0x0C
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    MDCAR_1
+        GOTO    MDSEG02
+MDCAR_1 BTFSS   STATUS,0
+        GOTO    MDSEG01
+        INCF    COUNTH
+        MOVLW   0x00
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    MDSEG01
+        MOVLW   0x0C
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    MDSEG01
+MDSEG02 RETLW   0
+
+
+RECEPCION
+        ;
+        ; PROCEDIMIENTO PARA LA RECEPCION DE DATOS TIPO RS232
+        ;
+        ; ENTRADA: NINGUNA
+        ; SALIDA:  VARIABLE "NUMERO" VALOR RECIBIDO (8 Bits)
+        ;
+        ; DEPENDENCIAS: EL BIT DE RECEPCION DEL PUERTO
+        ;               DEBE ESTAR INICIALIZADO
+        ;
+        ;
+        ; DETALLE PROCEDIMENTAL:
+        ;
+        ; numero := 0
+        ; anota := 9 { numero de bit recibidos + carry bit }
+        ; cont := rtrd0 { espera de medio start bit }
+        ; espacio()
+        ; cont := rtrd1
+        ; espacio()
+        ; FOR siempre
+        ; BEGIN
+        ;    cont := rtrd0 { espera de un bit completo }
+        ;    espacio()
+        ;    cont := rtrd0
+        ;    espacio()
+        ;    cont := rtrd0
+        ;    espacio()
+        ;    cont := rtrd2
+        ;    espacio()
+        ;    anota := anota - 1
+        ;    IF anota = 0 THEN BREAK
+        ;    status := status AND 0xE { activa en cero el carry }
+        ;    IF bit Rx <> 0 THEN status := status OR 1
+        ;    rota a la derecha la variable numero atraves del carry
+        ; END
+        ;
+        CLRF    NUMERO
+        MOVLW   9
+        MOVWF   ANOTA
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD1
+        MOVWF   CONT
+        CALL    ESPACIO
+RCP_01  MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD2
+        MOVWF   CONT
+        CALL    ESPACIO
+        DECFSZ  ANOTA
+        GOTO    RCP_02
+        RETLW   0
+RCP_02  BCF     STATUS,0
+        BTFSS   PORTA,Rx
+        GOTO    RCP_03
+        BSF     STATUS,0
+RCP_03  RRF     NUMERO
+        GOTO    RCP_01
+
+
+TRANSMISION
+        ;
+        ; PROCEDIMIENTO PARA LA TRANSMISION DE DATOS TIPO RS232
+        ;
+        ; ENTRADA: VARIABLE "NUMERO" VALOR PARA TRANSMITIR (8 Bits)
+        ; SALIDA:  NINGUNA
+        ;
+        ; DEPENDENCIAS: EL BIT DE TRANSMISION DEL PUERTO
+        ;               DEBE ESTAR INICIALIZADO
+        ;
+        ;
+        ; DETALLE PROCEDIMENTAL:
+        ;
+        ; anota := 8 { numero de bits para transmitir }
+        ; TOUT := 1
+        ; count := 0 { contador de 16 bits }
+        ; REPEAT
+        ;    rtcc := 0
+        ;    bit RTS del option register := 0
+        ;    REPEAT
+        ;    UNTIL rtcc XOR $FF = 0
+        ;    count := count + 1 { incremento de 16 bits }
+        ; UNTIL count = $0062
+        ; Tx := 0  { start bit }
+        ; cont := rtrd0 { espera de un bit completo }
+        ; espacio()
+        ; cont := rtrd0
+        ; espacio()
+        ; cont := rtrd0
+        ; espacio()
+        ; cont := rtrd2
+        ; espacio()
+        ; FOR siempre
+        ; BEGIN
+        ;    Tx := bit 0 de numero
+        ;    cont := rtrd0 { espera de un bit completo }
+        ;    espacio()
+        ;    cont := rtrd0
+        ;    espacio()
+        ;    cont := rtrd0
+        ;    espacio()
+        ;    cont := rtrd2
+        ;    espacio()
+        ;    anota := anota - 1
+        ;    IF anota = 0 THEN BREAK
+        ;    rota a la derecha la variable numero
+        ; END
+        ; Tx := 1 { stop bit }
+        ; cont := rtrd0 { espera de un bit completo }
+        ; espacio()
+        ; cont := rtrd0
+        ; espacio()
+        ; cont := rtrd0
+        ; espacio()
+        ; cont := rtrd2
+        ; espacio()
+        ; TOUT := 0
+        ;
+        MOVLW   8
+        MOVWF   ANOTA
+        BSF     PORTA,TOUT
+        CLRF    COUNTL
+        CLRF    COUNTH
+SEG_01T CLRF    RTCC
+        CLRW
+        OPTION
+RTCICLT MOVF    RTCC,W
+        XORLW   0xFF
+        BTFSS   STATUS,2
+        GOTO    RTCICLT
+        MOVLW   1
+        ADDWF   COUNTL
+        MOVLW   0x62
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    CARRY_T
+        BTFSS   STATUS,0
+        GOTO    SEG_03T
+        INCF    COUNTH
+SEG_03T MOVLW   0x00
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    CARRY_T
+        GOTO    SEG_02T
+CARRY_T BTFSS   STATUS,0
+        GOTO    SEG_01T
+        INCF    COUNTH
+        MOVLW   0x62
+        XORWF   COUNTL,W
+        BTFSS   STATUS,2
+        GOTO    SEG_01T
+        MOVLW   0x00
+        XORWF   COUNTH,W
+        BTFSS   STATUS,2
+        GOTO    SEG_01T
+SEG_02T
+        BCF     PORTA,Tx
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD2
+        MOVWF   CONT
+        CALL    ESPACIO
+TRN_01  BTFSS   NUMERO,0
+        GOTO    TRN_04
+        BSF     PORTA,Tx
+        GOTO    TRN_05
+TRN_04  BCF     PORTA,Tx
+TRN_05  MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD2
+        MOVWF   CONT
+        CALL    ESPACIO
+        DECFSZ  ANOTA
+        GOTO    TRN_02
+        BSF     PORTA,Tx
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD0
+        MOVWF   CONT
+        CALL    ESPACIO
+        MOVLW   RTRD2
+        MOVWF   CONT
+        CALL    ESPACIO
+        BCF     PORTA,TOUT
+        RETLW   0
+TRN_02  RRF     NUMERO
+        GOTO    TRN_01
+
+
+ESPACIO ;
+        ; PROCEDIMIENTO DE ESPERA DE 1us PARA 12Mhz
+        ;
+        ; ENTRADA: VARIABLE CONT
+        ; SALIDA:  NINGUNA
+        ;
+        ;
+        ; DEPENDENCIAS: VARIABLE CONT
+        ;
+        DECFSZ  CONT
+        GOTO    ESPACIO
+        RETLW   0
+
+
+        ORG     PIC56
+        GOTO    MAIN_CONTROL
+        END
