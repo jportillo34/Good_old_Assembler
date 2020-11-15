@@ -1,0 +1,776 @@
+;[]-------------------------------------------------[];
+;                                                     ;
+;   VIRTUAL DEVICE: MANEJA TODOS LOS DISPOSITIVOS     ;
+;                   CONECTADOS AL COMPUTADOR Y DA     ;
+;                   AL DOS UN SOPORTE DE BAJO NIVEL.  ;
+;                                                     ; 
+;                                                     ;
+;           COPYRIGHT    JOSE R. PORTILLO  L.  1991.  ;        
+;                                                     ;
+;[]-------------------------------------------------[];
+DOS	SEGMENT  PARA  PUBLIC  'CODE'
+	ASSUME   CS:DOS,DS:DOS
+        ORG    0
+
+	MAXCMD       EQU	16
+        NOT_READY    EQU  8002H
+        DESCONOCIDO  EQU  8003H
+        READ_ERROR   EQU  800BH
+        WRITE_ERROR  EQU  800AH  
+        NOT_FOUND    EQU  8008H
+        NOT_MEDIA    EQU  8007H
+	CR	     EQU    0DH
+	LF	     EQU    0AH
+
+
+        RETURNVAL    STRUC
+        CILINDRO     DW  0
+        HEAD         DW  0
+        SECTOR       DW  0
+        RETURNVAL    ENDS
+
+;[]------------------------------------------[];
+; CABECERA DEL DRIVER QUE DA AL KERNEL SUS     ;
+; CARACTERISTICAS Y EL NUMERO DE DISPOSITIVOS  ;
+; QUE MANEJA.                                  ;
+;[]------------------------------------------[];
+HEADER:
+	DD       -1
+	DW       0840H
+	DW       STRAT
+	DW       INTR
+	DB       4
+        DB       7   DUP (0)
+
+
+;[]--------------------------------------[];
+; ZONA DE VARIABLES DENTRO DEL MODULO      ;
+; PROGRAMA: DRIVER.                        ;
+;[]--------------------------------------[]; 
+RHPTR	      DD       ?                ;DIRECCION DEL REQUEST HEADER.
+LOG_SECTOR    DD       0                ;NUMERO DE SECTOR LOGICO.
+RELATIVE_LG   DD       0                ;SECTOR LOGICO DE INICIO PARA PART.
+TOP           DW       0                ;SECTOR LIMITE DE LA OPERACION. 
+VALORES       RETURNVAL <0>             ;COORDENADAS FISICAS DE ACCESO. 
+BUFFER_CHECK  DB       512 DUP (0)      ;PARA USO EN RUTINA MEDIA_CHECK.    
+D_DRIVES      DB       0
+              DB       'VIRTUAL DRIVERS: COPYRIGHT  JOSE  R. PORTILLO  1991.'
+
+;[]--------------------------------------[];
+; CARACTERISTICAS FISICAS DEL DRIVE DE     ;
+; DISCO EN UTILIZACION.                    ;
+;[]--------------------------------------[];
+NUMSEC        DB       9                ;VALORES PARA LAS CARACTERISTICAS 
+NUMHEAD       DB       2                ;DEL DISCO QUE ESTA SIENDO
+SECXCIL       DW       18               ;ACCESADO.
+DRIVE         DB       0
+HDMEDIDAS     DB       8     DUP(0)     ;#HEADS Y #SECTORESXTRACK.
+UNITODRIVE    DB       130   DUP(0)     ;TABLA DE CONVERSION ENTRE UNIDAD
+                                        ;LOGICA DEL BDOS Y NUMERO DEL DRIVE
+                                        ;FISICO DE DISCO.
+
+;[]--------------------------------------[];
+; JUMP TABLE QUE CONTIENE LA DIRECCION	   ;
+; DE TODAS LAS RUTINAS DE SERVICIO DE	   ;
+; COMANDOS PARA EL KERNEL DEL SISTEMA OP.  ;
+;[]--------------------------------------[];
+JUMP_TABLE:
+	DW       INICIO
+	DW       MEDIA_CHECK
+	DW       BUILD_BPB
+	DW       NO_COMANDO
+	DW       READ
+	DW       NO_COMANDO
+	DW       NO_COMANDO
+	DW       NO_COMANDO
+        DW       WRITE
+	DW       WRITE_VERIF
+	DW       NO_COMANDO
+	DW       NO_COMANDO
+	DW       NO_COMANDO
+	DW       DEVICE_OPEN
+        DW       DEVICE_CLOSE
+	DW       REMMEDIA
+
+
+
+;[]--------------------------------------[];
+;  RUTINA DE ESTRATEGIA PARA EL DRIVER	   ;
+;  DE DISPOSITIVO LOGICO.		   ;
+;[]--------------------------------------[];
+STRAT:
+        STI
+	MOV     WORD PTR CS: [RHPTR],BX
+	MOV     WORD PTR CS: [RHPTR+2],ES
+	RETF			        ;REGRESO AL KERNEL DEL S.O.
+
+
+;[]--------------------------------------[];
+;   RUTINA DE SERVICIO DE INTERRUPCION	   ;
+;   PARA EL DRIVER DE DISPOSITIVO LOGICO.  ;
+;[]--------------------------------------[];
+INTR:
+        STI
+	PUSH    AX
+	PUSH    BX
+	PUSH    CX
+	PUSH    DX
+	PUSH    DS
+	PUSH    ES
+	PUSH    DI
+	PUSH    SI
+	PUSH    BP
+        PUSH    CS		        ;SEGMENTO DATA.
+	POP     DS
+	LES     DI,[RHPTR]              ;DIRECCION DEL REQUEST HEADER.
+        MOV     AL,BYTE PTR ES: [DI+1]  ;UNIDAD.
+        XOR     AH,AH                   ;MULTIPLICA EL NUMERO DE UNIDAD
+        MOV     CL,5                    ;POR UNA CONSTANTE PARA AJUSTE
+        MUL     CL                      ;DENTRO DE LA TABLA UNITODRIVE.
+        MOV     BX,OFFSET UNITODRIVE
+        ADD     BX,AX
+        MOV     AL,BYTE PTR [BX]
+        MOV     DRIVE,AL                ;NUMERO DE DRIVE FISICO.
+        CMP     DRIVE,80H               ;HDD ?.
+        JB      SECT_LOG                ;EL ACCESO ES A UN FDD.
+        PUSH    DI
+        PUSH    BX                      ;UNITODRIVE.
+        MOV     BX,OFFSET HDMEDIDAS     ;TOMA DIRECCION A LAS VARIABLES.
+        MOV     AL,DRIVE                ;PREPARA LAS OPERACIONES DE           
+        XOR     AH,AH                   ;INDEXACION EN LA TABLA HDMEDIDAS.
+        SUB     AX,80H                  ;LE RESTA 80H AL NUMERO DE DRIVE.
+        SHL     AX,1                    ;MULTIPLICA EL RESULTADO POR 2.
+        MOV     DI,AX                   ;MUEVE A UN REGISTRO DE INDICE.
+        MOV     AL,BYTE PTR [BX+DI]     ;TOMA EL # DE HEADS PARA 8XH.
+        MOV     NUMHEAD,AL          
+        MOV     AL,BYTE PTR [BX+DI+1]   ;TOMA EL # DE SECTORES POR TRACK.
+        MOV     NUMSEC,AL           
+        MOV     CL,NUMHEAD          
+        MUL     CL                      ;CALCULA EL # DE SECTORESXCILINDRO.
+        MOV     SECXCIL,AX              ;COLOCA EL RESULTADO EN SU VARIABLE.
+        POP     BX                      ;RECUPERA EL APUNTADOR A UNITODRIVE.
+        POP     DI
+SECT_LOG:
+        MOV     AX,WORD PTR [BX+1]      ;TOMA LA PARTE ALTA DE SECTOR LOG.
+        MOV     WORD PTR RELATIVE_LG[2],AX
+        MOV     AX,WORD PTR [BX+3]      ;TOMA LA PARTE BAJA DE SECTOR LOG.
+        MOV     WORD PTR RELATIVE_LG,AX
+	MOV     BL,BYTE PTR ES: [DI+2]  ;EXTRAE EL NUMERO DE COMANDO.
+	XOR     BH,BH
+	CMP     BX,MAXCMD               ;VERIFICA SI ES UN COMANDO VALIDO.
+	JBE     INTR1                   ;LLAMA EL PROCEDIMIENTO DE COMANDO. 
+        MOV     AX,DESCONOCIDO          ;NO ES VALIDO EL NUMERO DE COMANDO.
+	JMP     RETURN
+INTR1:
+        SHL     BX,1                    ;JUMP TABLE.
+	JMP     WORD PTR [BX+JUMP_TABLE] ;PROCEDIMIENTO.
+RETURN:
+        OR      AX,0100H
+        LES     DI,[RHPTR]
+	MOV     WORD PTR ES: [DI+3],AX  ;REGRESA STATUS.
+	POP     BP
+	POP     SI
+	POP     DI
+	POP     ES
+	POP     DS
+	POP     DX
+        POP     CX
+	POP     BX
+	POP     AX
+	RETF			        ;REGRESO AL KERNEL DEL S.O.
+
+
+;[]----------------------------------------------[];
+; DEVUELVE LAS COORDENADAS FISICAS PARA UN REGISTRO;
+; LOGICO DADO EN LA ENTRADA.			   ;
+;						   ;
+; ENTRADA: NUMERO DE REGISTRO LOGICO.   	   ;
+; SALIDA:  SECTOR, CILINDRO, Y CARA EN EL DISCO.   ;
+;[]----------------------------------------------[];
+COORDENADAS:
+        XOR     DX,DX
+	MOV     AX,WORD PTR LOG_SECTOR  ;CARGA EL DIVIDENDO EN AX Y DX.
+        ADD     AX,WORD PTR RELATIVE_LG[2]
+        ADC     DX,WORD PTR RELATIVE_LG ;EN EL FORMATO DE 32 BITS.
+        MOV     CX,WORD PTR SECXCIL     ;DIVISOR EN CX.
+	DIV     CX                      ;*CILINDRO=LOG_SECTOR ö SECXCIL*.
+	MOV     VALORES.CILINDRO,AX     ;DEVUELVE EL NUMERO DE CILINDRO.
+	MOV     AX,DX                   ;MODULO DE LA DIVISION ANTERIOR
+	MOV     CL,NUMSEC               ;EN AX.
+	DIV     CL                      ;*HEAD=MOD(CILINDRO) ö NUMSEC*.
+	MOV     DX,AX
+	AND     DX,00FFH
+	MOV     VALORES.HEAD,DX         ;DEVUELVE EL NUMERO DE CABEZA.
+        MOV     CL,8
+	SHR     AX,CL                   ;*SECTOR=(MOD(CILINDRO) MOD NUMSEC)+1*.
+	INC     AX
+	MOV     VALORES.SECTOR,AX
+	RETN
+
+
+
+;[]---------------------------------------[];    
+; ESTOS SON LOS PROCEDIMIENTOS CORRESPON-   ;
+; DIENTES A LOS COMANDOS QUE DEBE EJECUTAR  ;
+; EL DRIVER.				    ;
+;[]---------------------------------------[];
+MEDIA_CHECK:
+        CMP     DRIVE,80H
+        JB      VERIFY
+        JMP     NOCHANGE
+VERIFY:
+        MOV     AH,16H                  ;VERIFICA SI EL DISCO HA SIDO
+        MOV     DL,DRIVE                ;REMOVIDO DESDE LA ULTIMA OPERACION.
+        INT     13H                     ;LLAMA AL SERVICIO DEL ROM BIOS.
+        JC      FDCHECK                 ;EL DISCO HA CAMBIADO. 
+NOCHANGE:
+        MOV     BYTE PTR ES: [DI+0EH],1
+        JMP     DONE_1                  ;NO HA SIDO REMOVIDO.
+FDCHECK:
+        MOV     CX,2                    ;INTENTA DOS VECES. 
+CHECKIT:
+        PUSH    CX
+        PUSH    ES
+        MOV     AX,CS                   ;PREPARA LOS PARAMETROS PARA
+        MOV     ES,AX                   ;LA FUNCION DE LECTURA DEL DISCO.
+        MOV     WORD PTR LOG_SECTOR,0
+        CALL    COORDENADAS             ;FUNCION DE TRANSFORMACION. 
+        MOV     AX,WORD PTR VALORES.CILINDRO
+        MOV     CH,AL                   ;SE REALIZA EL POSICIONAMIENTO DE 
+        MOV     CL,6                    ;LOS BITS DEL NUM. DE CILINDRO CON
+        SHL     AH,CL                   ;BITS 0-7 EN CH Y BITS 8-9 EN CL
+        MOV     CL,BYTE PTR VALORES.SECTOR
+        OR      CL,AH                   ;UNIDOS CON EL NUMERO DE SECTOR.
+        MOV     DH,BYTE PTR VALORES.HEAD    
+        MOV     DL,DRIVE                ;COLOCA EL NUMERO DEL DRIVE FISICO.
+        MOV     AX,0201H
+        MOV     BX,OFFSET BUFFER_CHECK
+        INT     13H
+        POP     ES
+        POP     CX
+        JNC     CONTINUE_1              ;SALTE SI NO HUBO ERROR EN LECTURA.
+        XOR     AX,AX
+        MOV     DL,DRIVE
+        INT     13H 
+        LOOP    CHECKIT
+        MOV     AX,NOT_READY            ;ERROR LEYENDO EL DISCO.
+        JMP     ERROR1            
+CONTINUE_1:
+        MOV     AL,BYTE PTR [BX+15H]    ;COMPARE EL ID DEL DISCO QUE LEE.
+        CMP     AL,BYTE PTR ES: [DI+0DH]
+        JNE     CHANGE                  ;NO ES EL MISMO QUE DA EL S.O. 
+        MOV     BYTE PTR ES: [DI+0EH],0
+        JMP     DONE_1                  ;SE DESCONOCE SI HA CAMBIADO.
+CHANGE:
+        MOV     BYTE PTR ES: [DI+0EH],-1
+DONE_1:
+        XOR     AX,AX                   ;ACTIVA EL FLAG DONE EN STATUS.   
+ERROR1:
+        JMP     RETURN
+
+
+
+BUILD_BPB:
+        MOV     CX,2                    ;INTENTA DOS VECES.
+CICLOBPB:
+        PUSH    CX
+        PUSH    ES
+        MOV     AX,CS                   ;PREPARA LOS PARAMETROS PARA
+        MOV     ES,AX                   ;LA FUNCION DE LECTURA DEL DISCO.
+        MOV     WORD PTR LOG_SECTOR,0
+        CALL    COORDENADAS             ;FUNCION DE TRANSFORMACION. 
+        MOV     AX,WORD PTR VALORES.CILINDRO
+        MOV     CH,AL                   ;SE REALIZA EL POSICIONAMIENTO DE 
+        MOV     CL,6                    ;LOS BITS DEL NUM. DE CILINDRO CON
+        SHL     AH,CL                   ;BITS 0-7 EN CH Y BITS 8-9 EN CL
+        MOV     CL,BYTE PTR VALORES.SECTOR
+        OR      CL,AH                   ;UNIDOS CON EL NUMERO DE SECTOR.
+        MOV     DH,BYTE PTR VALORES.HEAD    
+        MOV     DL,DRIVE                ;COLOCA EL NUMERO DEL DRIVE FISICO.
+        MOV     AX,0201H                ;A TRAVES DEL ROM BIOS.
+        MOV     BX,OFFSET BUFFER_CHECK
+        INT     13H
+        POP     ES
+        POP     CX
+        JNC     CONTINUE_2              ;SALTE SI NO HUBO ERROR EN LECTURA.
+        LOOP    CICLOBPB
+        MOV     AX,NOT_READY            ;ERROR LEYENDO EL DISCO.
+        JMP     ERROR2
+CONTINUE_2:
+        ADD     BX,000BH                ;REGRESA EL BPB DEL DISCO.
+        MOV     WORD PTR ES: [DI+12H],BX
+        MOV     WORD PTR ES: [DI+14H],CS
+        MOV     AX,WORD PTR [BX+0DH]    ;SECTORES POR TRACK.
+        MOV     NUMSEC,AL
+        MOV     AX,WORD PTR [BX+0FH]    ;NUMERO DE HEADS.
+        MOV     NUMHEAD,AL
+        MOV     AL,NUMSEC
+        XOR     AH,AH
+        MOV     CL,NUMHEAD
+        MUL     CL   
+        MOV     SECXCIL,AX
+        XOR     AX,AX                   ;ACTIVA EL FLAG DONE EN STATUS.   
+ERROR2:
+        JMP     RETURN
+
+
+
+READ:
+        MOV     AX,WORD PTR ES: [DI+14H]
+        ADD     AX,WORD PTR ES: [DI+12H]
+        MOV     TOP,AX
+        MOV     BX,WORD PTR ES: [DI+0EH]
+        MOV     CX,2
+PROXIMO1:
+        PUSH    CX
+        MOV     AH,02H
+        MOV     AL,1 
+        PUSH    ES
+        PUSH    AX                      ;PARAMETRO NUMERO DE SECTOR.
+        PUSH    BX                      ;BUFFER.
+        MOV     AX,WORD PTR ES: [DI+14H]
+        MOV     WORD PTR LOG_SECTOR,AX
+        CALL    COORDENADAS             ;FUNCION DE TRANSFORMACION. 
+        MOV     AX,ES: [DI+10H]         ;SEGMENTO DEL BUFFER.
+        MOV     ES,AX
+        MOV     AX,WORD PTR VALORES.CILINDRO
+        MOV     CH,AL                   ;SE REALIZA EL POSICIONAMIENTO DE 
+        MOV     CL,6                    ;LOS BITS DEL NUM. DE CILINDRO CON
+        SHL     AH,CL                   ;BITS 0-7 EN CH Y BITS 8-9 EN CL
+        MOV     CL,BYTE PTR VALORES.SECTOR
+        OR      CL,AH                   ;UNIDOS CON EL NUMERO DE SECTOR.
+        MOV     DH,BYTE PTR VALORES.HEAD    
+        MOV     DL,DRIVE                ;COLOCA EL NUMERO DEL DRIVE FISICO.
+        POP     BX
+        POP     AX
+        INT     13H
+        POP     ES
+        POP     CX 
+        JNC     CONTINUE_3              ;SALTE SI NO HUBO ERROR EN LECTURA.
+        XOR     AX,AX
+        MOV     DL,DRIVE
+        INT     13H
+        LOOP    PROXIMO1
+        MOV     AX,NOT_READY            ;ERROR LEYENDO EL DISCO.
+        JMP     ERROR3            
+CONTINUE_3:
+        ADD     BX,512
+        INC     WORD PTR ES: [DI+14H]
+        MOV     AX,WORD PTR ES: [DI+14H]
+        CMP     AX,TOP 
+        JB      PROXIMO1                ;LEE EL PROXIMO SECTOR.
+        XOR     AX,AX                   ;ACTIVA EL FLAG DONE EN STATUS.   
+ERROR3:
+        JMP     RETURN
+
+
+            
+WRITE:
+        MOV     AX,WORD PTR ES: [DI+14H]
+        ADD     AX,WORD PTR ES: [DI+12H]
+        MOV     TOP,AX
+        MOV     BX,WORD PTR ES: [DI+0EH]
+        MOV     CX,2
+PROXIMO2:
+        PUSH    CX
+        MOV     AH,03H
+        MOV     AL,1
+        PUSH    ES                      ;GUARDA EL CONTENIDO DE ES.
+        PUSH    AX                      ;PARAMETRO NUMERO DE SECTOR.
+        PUSH    BX                      ;OFFSET DEL BUFFER DE TRANSFERENCIA.
+        MOV     AX,WORD PTR ES: [DI+14H]
+        MOV     WORD PTR LOG_SECTOR,AX
+        CALL    COORDENADAS             ;FUNCION DE TRANSFORMACION.
+        MOV     AX,ES:[DI+10H]          ;SEGMENTO DEL BUFFER.
+        MOV     ES,AX
+        MOV     AX,WORD PTR VALORES.CILINDRO
+        MOV     CH,AL                   ;SE REALIZA EL POSICIONAMIENTO DE
+        MOV     CL,6                    ;LOS BITS DEL NUM. DE CILINDRO CON
+        SHL     AH,CL                   ;BITS 0-7 EN CH Y BITS 8-9 EN CL
+        MOV     CL,BYTE PTR VALORES.SECTOR
+        OR      CL,AH                   ;UNIDOS CON EL NUMERO DE SECTOR.
+        MOV     DH,BYTE PTR VALORES.HEAD
+        MOV     DL,DRIVE                ;COLOCA EL NUMERO DEL DRIVE FISICO.
+        POP     BX
+        POP     AX
+        INT     13H
+        POP     ES
+        POP     CX
+        JNC     CONTINUE_4              ;SALTE SI NO HUBO ERROR EN ESCRITURA.
+        XOR     AX,AX
+        MOV     DL,DRIVE
+        INT     13H
+        LOOP    PROXIMO2
+        MOV     AX,NOT_READY            ;ERROR DE ESCRITURA EN EL DISCO.
+        JMP     ERROR4
+CONTINUE_4:
+        ADD     BX,512
+        INC     WORD PTR ES: [DI+14H]
+        MOV     AX,WORD PTR ES: [DI+14H]
+        CMP     AX,TOP
+        JB      PROXIMO2                ;ESCRIBE EL PROXIMO SECTOR.
+        XOR     AX,AX                   ;ACTIVA EL FLAG DONE EN STATUS.
+ERROR4:
+        JMP     RETURN                  ;REGRESA A LA RUTINA DE SERVICIO.
+
+
+
+WRITE_VERIF:
+        XOR     AX,AX
+	JMP     RETURN
+
+
+DEVICE_OPEN:
+        XOR     AX,AX
+	JMP     RETURN
+
+
+DEVICE_CLOSE:
+        XOR     AX,AX
+	JMP     RETURN
+
+
+REMMEDIA:
+        XOR     AX,AX
+	JMP     RETURN
+
+
+NO_COMANDO:
+        XOR     AX,AX                   ;INDICA QUE EL COMANDO NO ESTA
+        JMP     RETURN                  ;DISPONIBLE EN ESTE DRIVER.
+
+
+
+;[]---------------------------------------------------[];
+;  ESTA ES LA RUTINA QUE ADAPTA AL DRIVER A CUALQUIER   ;
+;  CONFIGURACION DE COMPUTADOR.                         ;
+;[]---------------------------------------------------[];  
+INICIO:
+        PUSH    ES                      ;GUARDA LA DIRECCION DEL
+	PUSH    DI                      ;DEVICE HEADER.
+	MOV     AH,9                    ;MENSAJE DE INSTALACION.
+	MOV     DX,OFFSET IDENT
+	INT     21H
+        MOV     SI,OFFSET ADDRESS_BPB
+        MOV     BX,OFFSET UNITODRIVE
+        MOV     POINTERUD,BX            ;SALVA ESTA DIRECCION.
+        MOV     AH,0C0H                 ;VERIFICA CON EL ROM BIOS SI
+        INT     15H                     ;EXISTE RT/CMOS RAM.
+        MOV     AL,ES: [BX+5]           ;TOMA EL BYTE DE CONFIGURACION.
+        MOV     BX,POINTERUD            ;RECUPERA DIRECCION DE UNITODRIVE.
+        TEST    AL,20H                  ;VERIFICA EL BIT 5.
+        JNZ     RTCMOSRAM               ;SI NO TIENE VERIFICA TIPO DE HDD.
+        ;[]---------------------------------------------------------[];
+        ;        INICIALIZACION DE LOS DRIVES PARA FLOPPYS.           ;
+        ;[]---------------------------------------------------------[];
+        INT     11H                     ;VERIFICA SI EXISTEN FDDS EN EL PC.
+        TEST    AL,01H                  ;EXISTEN DRIVES CONECTADOS.
+        JZ      PUENTE                  ;NO HAY CONECTADOS FDDS.
+        AND     AL,0C0H                 ;NUMERO DE FDDS CONECTADOS.
+        MOV     CL,6
+        SHR     AL,CL                   ;CONFIGURA EL NUMERO.
+        INC     AL                      ;ADAPTA AL PARA NUM. DE DRIVES.
+        ADD     D_DRIVES,AL             ;DRIVES REGISTRADOS.
+        MOV     DI,OFFSET BPBS          ;A CONTINUACION SE LLENA LA TABLA
+        MOV     AH,0                    ;DE BPBS PARA LOS FLOPPYS
+        MOV     CX,AX                   ;QUE SE ENCUENTRAN DISPONIBLES.
+VACIAR:
+        MOV     WORD PTR [SI],OFFSET BPBS
+        MOV     BYTE PTR [BX],AH
+        ADD     BX,5
+        ADD     SI,2
+        INC     AH
+        LOOP    VACIAR
+        MOV     POINTERUD,BX
+        JMP     NOFLOPPY                ;VERIFICAR EL NUMERO DE HDDS.
+        ;[]---------------------------------------------------------[];
+        ;        INICIALIZACION DE LOS DRIVES PARA FLOPPYS.           ;
+        ;[]---------------------------------------------------------[];
+RTCMOSRAM:
+        MOV     DX,70H                  ;LEE EL TIPO DE FLOPPY DRIVES
+        MOV     AL,10H                  ;CONECTADOS AL COMPUTADOR.
+        OUT     DX,AL
+        INC     DX
+        XOR     AX,AX
+        IN      AL,DX
+        MOV     DX,AX
+        PUSH    AX
+        MOV     CL,4
+        SHR     DL,CL                   ;IDENTIFICA EL PRIMER DRIVE.
+        CMP     DL,0
+        JE      NODRIVE
+        INC     D_DRIVES
+        DEC     DL
+        MOV     AL,13
+        MUL     DL
+        MOV     DL,0                    ;PRIMER DRIVE DE DISCO CONECTADO
+        MOV     [BX],DL                 ;AL COMPUTADOR.
+        MOV     DI,OFFSET BPBS
+        ADD     DI,AX
+        MOV     [SI],DI
+        ADD     SI,2
+        ADD     BX,5
+        MOV     POINTERUD,BX
+        JMP     NODRIVE
+PUENTE:
+        JMP     NOFLOPPY
+NODRIVE:
+        POP     DX
+        AND     DL,0FH                  ;IDENTIFICA EL SEGUNDO DRIVE.
+        CMP     DL,0
+        JE      NOFLOPPY
+        INC     D_DRIVES
+        DEC     DL
+        MOV     AL,13
+        MUL     DL
+        MOV     DL,1                    ;SEGUNDO DRIVE DE DISCO CONECTADO
+        MOV     BYTE PTR [BX],DL        ;AL COMPUTADOR.
+        MOV     DI,OFFSET BPBS
+        ADD     DI,AX
+        MOV     WORD PTR [SI],DI
+        ADD     SI,2
+        ADD     BX,5
+        MOV     POINTERUD,BX
+        ;[]---------------------------------------------------------[];
+        ;        INICIALIZACION DE LOS DRIVES PARA DISCO DURO.        ;
+        ;[]---------------------------------------------------------[];
+NOFLOPPY:
+        MOV     BX,OFFSET STACK         ;CAMBIA A UN STACK INTERNO DEL
+        MOV     WORD PTR [BX],SP        ;DRIVER.
+        MOV     WORD PTR [BX+2],SS
+        MOV     AX,CS                   ;EL SEGMENTO BASE DE ESTE STACK
+        MOV     SS,AX                   ;ES EL MISMO DONDE SE CARGA EL
+        MOV     SP,0FFFEH               ;DRIVER.
+        MOV     BL,80H
+        CALL    CHECK_HD
+        JC      NOHARDISK               ;NO HAY HDD EN EL SISTEMA.
+        MOV     CL,DL
+        MOV     CH,0
+HDCONECTED:
+        PUSH    CX
+        CALL    CHECK_HD
+        MOV     DI,OFFSET HDMEDIDAS     ;PREPARA LAS VARIABLES.
+        ADD     DI,COUNTER              ;DESPLAZAMIENTO EN LA TABLA.
+        INC     DH                      ;ADAPTAR EL NUMERO DE HEADS.
+        MOV     BYTE PTR [DI],DH        ;COLOCA EL NUMERO DE HEADS PARA 8XH.
+        AND     CL,3FH                  ;ELIMINA LA PARTE ALTA DE #CILINDRO.
+        MOV     BYTE PTR [DI+1],CL      ;COLOCA EL NUMERO DE SECTORES.
+        MOV     NUMDRIVE,BL
+        ;[]-------------------------------------------------[];
+        ;  SE COLOCAN LOS PARAMETROS PARA LA RUTINA QUE LEE   ;
+        ;  LA TABLA DE PARTICIONES DE LOS DISCOS.             ;
+        ;[]-------------------------------------------------[];
+        PUSH    AX
+	PUSH    BX
+	PUSH    CX
+	PUSH    DI
+        XOR     AX,AX
+        PUSH    AX                      ;COLOCA EL CONTADOR DE ENTRADA.
+        PUSH    AX                      ;COLOCA EL NUMERO DE SECTOR LOGICO
+        PUSH    AX                      ;RELATIVO AL ORIGEN DE LA PARTICION.
+        INC     AX
+        PUSH    AX                      ;COLOCA EL # DE SECTOR\CILINDRO.
+        DEC     AX
+        PUSH    AX                      ;COLOCA EL # DE HEAD Y SECTOR.
+        CALL    READ_PART
+        ADD     SP,0AH                  ;LIBERA LOS PARAMETROS ANTERIORES.
+	POP     DI
+	POP     CX
+	POP     BX
+	POP     AX
+        INC     BL
+        ADD     COUNTER,2               ;INCREMENTA EL DESPLAZAMIENTO.
+        POP     CX
+        LOOP    HDCONECTED
+NOHARDISK:
+        MOV     BX,OFFSET STACK         ;CAMBIA AL STACK ORIGINAL DEL
+        MOV     SP,WORD PTR [BX]        ;KERNEL PARA DOS.
+        MOV     SS,WORD PTR [BX+2]
+        ;[]---------------------------------------------------------[];
+        ;        SALIDA COMUN PARA CUALQUIER CONFIGURACION.           ;
+        ;[]---------------------------------------------------------[];
+RHVACIADO:
+        POP     DI
+	POP     ES
+        MOV     BX,OFFSET HEADER
+        MOV     AL,D_DRIVES
+        MOV     BYTE PTR [BX+10],AL
+        MOV     BYTE PTR ES: [DI+0DH],AL
+	MOV     WORD PTR ES: [DI+0EH],OFFSET INICIO
+	MOV     WORD PTR ES: [DI+10H],CS
+        MOV     WORD PTR ES: [DI+12H],OFFSET ADDRESS_BPB
+        MOV     WORD PTR ES: [DI+14H],CS
+	XOR     AX,AX
+	JMP     RETURN                  ;REGRESA A LA RUTINA DE SERVICIO.
+
+
+;[]--------------------------------------------------[];
+;  ESTE PROCEDIMIENTO REGISTRA TODAS LAS PARTICIONES   ;
+;  DENTRO DE TODOS LOS DISCOS DUROS DEL SISTEMA.       ;
+;                                                      ;
+;  ENTRADA:   COORDENADAS DEL SECTOR QUE CONTIENE UNA  ;
+;             TABLA DE PARTICION DADA.                 ;
+;                                                      ;
+;  SALIDA:    TABLA CONTENIENDO EL NUMERO DE DRIVE     ;
+;             FISICO JUNTO CON EL SECTOR LOGICO DE     ;
+;             INICIO DE LA PARTICION LOGICA.           ;
+;[]--------------------------------------------------[];
+READ_PART:
+        MOV     BP,SP
+        MOV     AX,CS
+        MOV     ES,AX
+        MOV     BX,OFFSET PART_SECTOR 
+        MOV     AH,02H              
+        MOV     AL,1
+        MOV     CX,WORD PTR [BP+4]      ;CILINDRO Y SECTOR.
+        MOV     DH,BYTE PTR [BP+3]      ;HEAD.
+        MOV     DL,NUMDRIVE             ;DRIVE FISICO.
+        INT     13H
+        MOV     AX,WORD PTR ES: [BX+01FEH]
+        CMP     AX,0AA55H               ;VERIFICA SI LA TABLA ES VALIDA.
+        JE      BIENTABLA               ;TABLA CORRECTA.
+        JMP     REGRESA                 ;NO LEE LA TABLA ACTUAL.
+BIENTABLA:
+        ADD     BX,01BEH                ;DIRECCION BASE.     
+        MOV     CX,WORD PTR [BP+10]     ;CONTADOR DE ENTRADAS.
+LEETIPO:
+        ADD     BX,CX                   ;SUMA EL NUMERO DE ENTRADA.
+        CMP     BX,OFFSET PART_SECTOR+01FEH
+        JE      PUENTE2                 ;VERIFICADAS LAS 4 ENTRADAS ?
+        MOV     AL,BYTE PTR ES: [BX+4]
+        CMP     AL,0                    ;VERIFICA SI ES UNA ENTRADA.
+        JNE     TIPO5
+        MOV     CX,10H                  ;NO OCUPADA.
+        ADD     WORD PTR [BP+10],CX
+        JMP     LEETIPO                 ;NO IMPORTA.
+PUENTE2:
+        JMP     REGRESA
+TIPO5:
+        CMP     AL,5                    ;VERIFICA SI LA ENTRADA ES UNA 
+        JNE     REGSTR                  ;PARTICION FISICA.
+        ADD     WORD PTR [BP+10],10H    ;GUARDA EL CONTADOR ACTUAL.
+        XOR     CX,CX                   ;NUEVO CONTADOR DE ENTRADAS.
+        PUSH    CX
+        PUSH    WORD PTR ES: [BX+10]    ;PARTE BAJA.
+        PUSH    WORD PTR ES: [BX+8]     ;PARTE ALTA.
+        PUSH    WORD PTR ES: [BX+2]     ;SECTOR\CILINDRO.
+        MOV     AL,BYTE PTR ES: [BX+1]
+        XOR     AH,AH
+        PUSH    AX
+        CALL    READ_PART               ;LLAMADA RECURSIVA.
+        ADD     SP,0AH                  ;LIBERA LOS PARAMETROS.
+        JMP     READ_PART               ;CONTINUA CON TABLA INICIAL.
+REGSTR:
+        PUSH    BX
+        PUSH    DI
+        PUSH    ES
+        MOV     AH,02H
+        MOV     AL,1
+        MOV     CX,WORD PTR ES: [BX+2]
+        MOV     DH,BYTE PTR ES: [BX+1]
+        MOV     DL,NUMDRIVE
+        MOV     BX,OFFSET BPB_SECTOR
+        INT     13H
+        MOV     CL,13
+        ADD     BX,000BH                ;BPB DE LA UNIDAD.
+        MOV     DI,OFFSET PARTICIONES
+        MOV     WORD PTR [SI],DI
+        ADD     SI,2
+        ADD     DI,PARTICIONCNT
+CADENABPB:
+        MOV     AL,BYTE PTR ES: [BX]
+        MOV     BYTE PTR [DI],AL
+        INC     BX
+        INC     DI
+        LOOP    CADENABPB
+        POP     ES
+        POP     DI
+        POP     BX
+        ADD     PARTICIONCNT,13
+        MOV     DI,POINTERUD            ;RECUPERA APUNTADOR UNITODRIVE.
+        MOV     AL,NUMDRIVE             ;TOMA NUMERO DE DRIVE FISICO.
+        MOV     BYTE PTR [DI],AL        ;LO COLOCA EN UNITODRIVE.
+        MOV     AX,WORD PTR ES: [BX+8]
+        ADD     AX,WORD PTR [BP+6]
+        MOV     DX,WORD PTR ES: [BX+10]
+        ADC     DX,WORD PTR [BP+8]
+        MOV     WORD PTR [DI+1],AX      ;16 BITS DE MENOR ORDEN.
+        MOV     WORD PTR [DI+3],DX      ;16 BITS DE MAYOR ORDEN.
+        ADD     DI,5
+        MOV     POINTERUD,DI            ;APUNTADOR A UNITODRIVE.
+        MOV     CX,10H
+        ADD     WORD PTR [BP+10],CX     ;PREPARA CONTADOR DE ENTRADAS.
+        INC     D_DRIVES
+        JMP     LEETIPO                 ;LEE SIGUIENTE ENTRADA ACTUAL.
+REGRESA:
+        RETN
+
+
+CHECK_HD:
+        MOV     AH,08H                  ;VERIFICA SI HAY HDD CONECTADOS.
+        MOV     DL,BL
+        INT     13H
+        RETN
+
+IDENT	      DB       CR,LF,LF
+	      DB       'EMULADOR DE DRIVERS RESIDENTES DOS. --> COPYRIGHT  JOSE R. PORTILLO  1991.'
+	      DB       CR,LF,'$'
+POINTERUD     DW       0
+NUMDRIVE      DB       0 
+PART_SECTOR   DB       512     DUP(0)
+BPB_SECTOR    DB       512     DUP(0)
+COUNTER       DW       0
+PARTICIONCNT  DW       0
+STACK         DW       0   
+              DW       0 
+;[]--------------------------------------[];
+; BIOS-PARAMETER-BLOCK PARA CADA TIPO DE   ;
+; DISCO QUE SE MANEJE EN ESTE COMPUTADOR.  ;
+;[]--------------------------------------[];         
+ADDRESSPOINT  DW       $
+ADDRESS_BPB   DW       26    DUP(0) 
+ 
+;DISCO DE 360 KBYTES.
+BPBS          DW       512	           ;#BYTES POR SECTOR.
+	      DB       2		   ;#SECTORES POR CLUSTER.
+	      DW       1		   ;SECTORES RESERVADOS.
+	      DB       2		   ;#FATS EN EL DISCO.
+	      DW       112		   ;ENTRADAS EN EL ROOT DIR.
+	      DW       720		   ;TOTAL DE SECTORES EN EL DISCO.
+	      DB       0FDH		   ;MEDIA DESCRIPTOR BYTE.
+	      DW       2		   ;#SECTORES POR FAT.  
+
+;DISCO DE 1.2 MBYTES.
+              DW       512	           ;#BYTES POR SECTOR.
+	      DB       1		   ;#SECTORES POR CLUSTER.
+	      DW       1		   ;SECTORES RESERVADOS.
+	      DB       2		   ;#FATS EN EL DISCO.
+	      DW       224		   ;ENTRADAS EN EL ROOT DIR.
+	      DW       2400		   ;TOTAL DE SECTORES EN EL DISCO.
+	      DB       0F9H		   ;MEDIA DESCRIPTOR BYTE.
+	      DW       7		   ;#SECTORES POR FAT.  
+
+;DISCO DE 720 KBYTES.
+      	      DW       512	           ;#BYTES POR SECTOR.
+	      DB       2		   ;#SECTORES POR CLUSTER.
+	      DW       1		   ;SECTORES RESERVADOS.
+	      DB       2		   ;#FATS EN EL DISCO.
+	      DW       112		   ;ENTRADAS EN EL ROOT DIR.
+	      DW       1440		   ;TOTAL DE SECTORES EN EL DISCO.
+	      DB       0F9H		   ;MEDIA DESCRIPTOR BYTE.
+	      DW       3		   ;#SECTORES POR FAT.
+
+;DISCO DE 1.44 MBYTES.
+      	      DW       512	           ;#BYTES POR SECTOR.
+	      DB       1   	           ;#SECTORES POR CLUSTER.
+	      DW       1		   ;SECTORES RESERVADOS.
+	      DB       2		   ;#FATS EN EL DISCO.
+	      DW       224		   ;ENTRADAS EN EL ROOT DIR.
+	      DW       2880         	   ;TOTAL DE SECTORES EN EL DISCO.
+	      DB       0F0H     	   ;MEDIA DESCRIPTOR BYTE.
+	      DW       9        	   ;#SECTORES POR FAT.
+
+PARTICIONES   DB       130     DUP(0)
+
+DOS           ENDS
+              END
