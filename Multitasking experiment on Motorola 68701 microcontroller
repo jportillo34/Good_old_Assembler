@@ -1,0 +1,231 @@
+VNDC    EQU     $0000     * DIRECCION DEL NUMERO DE DISPOSITIVOS CONTROLADOS
+VTH     EQU     $0001     * DIRECCION DEL TIPO DE HORARIO ACTIVO
+SARRAY  EQU     $0002     * DIRECCION DE LA TABLA DE DISPOSITIVOS
+TCSR    EQU     $0008     * DIRECCION DEL TIMER CONTROL AND STATUS REGISTER
+COUNTER EQU     $0009     * DIRECCION BASE DEL FREE-RUNNING COUNTER
+THG     EQU     $0022     * DIRECCION DE LA TABLA DE HORARIO GENERAL
+THI     EQU     $0035     * DIRECCION DE LA TABLA DE HORARIOS INDIVIDUALES
+TFR     EQU     $0252     * DIRECCION DE LA TABLA DE DIAS FERIADOS
+RAMEM   EQU     $0080     * DIRECCION BASE DE MEMORIA RAM INTERNA AL 68701
+LTCH_1  EQU     $2000     * PRIMER LATCH DE SALIDAS
+LTCH_2  EQU     $4000     * SEGUNDO LATCH DE SALIDAS
+LTCH_3  EQU     $6000     * TERCER LATCH DE SALIDAS
+MASTER  EQU     $F800     * DIRECCION BASE DE LA MEMORIA DE PROGRAMA
+SCHVEC  EQU     $FFF2     * VECTOR PARA LA DIRECCION BASE DE "SC_DS"
+BOOT    EQU     $FFFE     * VECTOR PARA LA DIRECCION BASE DEL PROGRAMA
+LCD     EQU     0         * DIRECCION DEL DISPLAY
+RTC     EQU     1         * DIRECCION DEL REAL TIME CLOCK
+TECLADO EQU     4         * DIRECCION DEL TECLADO
+TECLAS  EQU     $07       * MASCARA PARA TECLAS DEL OPERADOR
+T_PROG  EQU     $03       * TECLA "PROG" OPRIMIDA
+T_MODIF EQU     $05       * TECLA "MODIF" OPRIMIDA
+T_PROX  EQU     $06       * TECLA "PROX" OPRIMIDA
+BUSTOP  EQU     $FF
+NODISP  EQU     $07       * ESTADO NORMAL DEL BUS DE DISPOSITIVOS
+DATBUS  EQU     $02       * DATA BUS PARA DISPOSITIVOS ( LCD, RTC, TECL. )
+DIRBUS  EQU     $03       * ADDRESS BUS PARA DISPOSITIVOS
+
+
+
+        ORG     RAMEM     * STAND BY RAM
+DSCTR   RMB      1        * NUMERO DE DISPOSITIVOS CONTROLADOS PROC."AUTOMA"
+OFFSET  RMB      1        * PARA DIRECCIONAR LA TABLA DE HORARIOS
+
+
+******** TABLA CONTENIENDO LOS HORARIOS DE TRABAJO DE LA SEMANA ********
+LV_ON   RMB      3        * HORA DE ENCENDIDO DEL SISTEMA -> LUN. A VIER.
+LV_OF   RMB      3        * HORA DE APAGADO DEL SISTEMA -> LUN. A VIER.
+SB_ON   RMB      3        * HORA DE ENCENDIDO DEL SISTEMA -> SABADO
+SB_OF   RMB      3        * HORA DE APAGADO DEL SISTEMA -> SABADO
+DM_ON   RMB      3        * HORA DE ENCENDIDO DEL SISTEMA -> DOMINGO
+DM_OF   RMB      3        * HORA DE APAGADO DEL SISTEMA -> SABADO
+************************************************************************
+
+
+TABLA   RMB      2        * VARIABLE INTERMEDIA DE DIAS FERIADOS
+INLCD   RMB      1        * INICIALIZACION DEL LCD
+
+
+******** VARIABLES UTILIZADAS PARA LA VERIFICACION DEL HORARIO ********
+HACTM   RMB      2        * HORA ACTUAL EN FORMATO MILITAR
+HENCM   RMB      2        * HORA ENCENDIDO EN FORMATO MILITAR
+HAPGM   RMB      2        * HORA APAGADO EN FORMATO MILITAR
+***********************************************************************
+
+
+VRINT   RMB      1        * VARIABLE MANEJADA POR LA RUTINA DE INTERRUPCION
+INDMD   RMB      1        * VARIABLE UTILIZADA POR EL PROCEDIMIENTO "INFECHA"
+DVSOR   RMB      1        * VARIABLE DIVISOR PARA EL PROC. "DIV"
+COCNT   RMB      1        * VARIABLE COCIENTE PARA EL PROC. "DIV"
+DIRFILE RMB      2        * VARIABLE PARA EL PROC. "WRITE_HR" Y "READ_HR"
+DIRAM   RMB      2        * VARIABLE PARA EL PROC. "WRITE_HR" Y "READ_HR"
+DSPCONT RMB      1        * CONTADOR DE COMPROBACIONES PARA "AUTOMA"
+CIRCULO RMB      2        * INDICE CIRCULAR PARA LA UBICACION DEL HORARIO
+SEGCONT RMB      1        * CONTADOR DE SEGUNDOS ( PROCEDIMIENTO INTERRUPT )
+SALIDAS RMB      3
+BITCONT RMB      1        * INDICE DE BITS PARA PROC. "CAMB_EST"
+IND_PST RMB      1        * INDICADOR DE POST ENCENDIDO
+FRACMIN RMB      1        * INDICADOR DE LOS MINUTOS PROC "CAMB_EST"
+FRACONT RMB      1        * CONTADOR DE MINUTOS ( SERVICIO DE INTERRUPCION )
+ALTC    RMB      1        * INDICADOR DE ARRANQUE ESPECIAL
+CTXTPTR RMB      2        * APUNTADOR AL STACK POINTER PARA TASK N
+CTXTSP1 RMB      2        * CONTEXT STACK POINTER PARA TASK 1
+CTXTSP2 RMB      2        * CONTEXT STACK POINTER PARA TASK 2
+CTXTSP3 RMB      2        * CONTEXT STACK POINTER PARA TASK 3
+CTXTSP4 RMB      2        * CONTEXT STACK POINTER PARA TASK 4
+
+
+
+        ORG     MASTER
+*[]---------------------------------------------------------------------[]
+*  INICIALIZACION PARA EJECUTAR LA ARQUITECTURA DE SOFTWARE MULTITASKING
+*
+*
+*  DETALLE PROCEDIMIENTAL:
+*
+*   CLI() { permite las interrupciones }
+*   { prepara el acceso a la STAND BY RAM }
+*   .
+*   .
+*   .
+*   { activa las direcciones base para cada fragmento del stack }
+*   CTXTSP4 := $00CC
+*   CTXTSP3 := $00DD
+*   CTXTSP2 := $00EE
+*   CTXTSP1 := $00FF
+*   { prepara el context para TASK_2 }
+*   S := CTXTSP2 { inicia el stack pointer }
+*   { coloca en el stack el context para TASK_2 }
+*   APILA(CCR ,ACCB = 0 ,ACCA = 0 ,TASK_2 )
+*   CTXTSP2 := S { almacena el nuevo valor del stack pointer }
+*   { prepara el context para TASK_1 }
+*   CTXTPTR := CTXTSP1
+*   S := CTXTPTR { inicia el stack pointer }
+*   { coloca en el stack el context para TASK_1 }
+*   APILA(CCR ,ACCB = 0 ,ACCA = 0 ,TASK_1 )
+*   { configura el puerto 1 con bits de salida }
+*   .
+*   .
+*   .
+*   { lee el TCSR y luego el free_running counter }
+*   .
+*   .
+*   .
+*   TCSR := $04 { activa el bit ETOI }
+*   RTI() { pasa el control a TASK_1 }
+*
+*[]---------------------------------------------------------------------[]
+MAIN    CLI               * PERMITE LAS INTERRUPCIONES
+        LDAA    #$7F      * PREPARA EL ACCESO A LA STAND BY RAM
+        STAA    $0014
+        LDX     #$00CC
+        STX     CTXTSP4
+        LDX     #$00DD
+        STX     CTXTSP3
+        LDX     #$00EE
+        STX     CTXTSP2
+        LDX     #$00FF
+        STX     CTXTSP1
+        LDS     CTXTSP2   * INICIA EL STACK POINTER
+        CLRA
+        LDX     #TASK_2
+        PSHX              * ALMACENA LA DIRECCION DE RETORNO
+        PSHA              * ALMACENA EL VALOR DE IX
+        PSHA
+        PSHA              * ALMACENA EL VALOR DE ACCA
+        PSHA              * ALMACENA EL VALOR DE ACCB
+        TPA               * CARGA EN ACCA EL CCR
+        PSHA              * ALMACENA EL VALOR DEL CCR
+        STS     CTXTSP2   * ALMACENA EL VALOR NUEVO DE SP
+        LDX     #CTXTSP1
+        STX     CTXTPTR
+        LDS     $0,X      * INICIA EL STACK POINTER
+        CLRA
+        LDX     #TASK_1
+        PSHX              * ALMACENA LA DIRECCION DE RETORNO
+        PSHA              * ALMACENA EL VALOR DE IX
+        PSHA
+        PSHA              * ALMACENA EL VALOR DE ACCA
+        PSHA              * ALMACENA EL VALOR DE ACCB
+        TPA               * CARGA EN ACCA EL CCR
+        PSHA              * ALMACENA EL VALOR DEL CCR
+        CLRA              * INICIA LOS BITS ANTES DE CONFIGURAR
+        STAA    DATBUS
+        LDAA    #BUSTOP   * INICIA DATA BUS CON BITS DE SALIDA
+        STAA    $00
+        LDAA    TCSR
+        LDAA    COUNTER
+        LDAA    #4        * ENCIENDE EL BIT ETOI EN EL TCSR
+        STAA    TCSR
+        RTI               * PASA EL CONTROL A TASK_1
+
+
+
+*[]----------------------------------------------------------[]
+*  PROCEDIMIENTO QUE REALIZA EL CONTEXT SWITCHING DENTRO DE
+*  UNA ARQUITECTURA DE SOFTWARE MULTITASKING
+*
+*  ENTRADA: VALOR ACTUAL DE SP Y
+*           EL APUNTADOR AL BUFFER DE SP's ( CTXTPTR )
+*  SALIDA:  VALOR NUEVO DE SP Y CTXTPTR
+*
+*  PROCEDIMIENTOS EMPLEADOS: NINGUNO
+*
+*
+*  DETALLE PROCEDIMIENTAL:
+*
+*   ^CTXTPTR := S { salva el stack pointer actual }
+*   CTXTPTR := CTXTPTR + 2
+*   IF CTXTPTR = CTXTSP3 THEN CTXTPTR := CTXTSP1
+*   S := ^CTXTPTR { proximo valor del stack pointer }
+*   { lee el TCSR y luego el free_running counter }
+*   .
+*   .
+*   .
+*   RTI() { pasa el control al siguiente proceso }
+*
+*[]----------------------------------------------------------[]
+SC_DS   LDX     CTXTPTR   * IGUALA IX A CTXTPTR
+        STS     $0,X      * ALMACENA EL VALOR DEL STACK POINTER
+        INX
+        INX
+        CPX     #CTXTSP3  * COMPARA IX CONTRA LA DIRECCION CTXTSP3
+        BNE     SC_1
+        LDX     #CTXTSP1
+SC_1    STX     CTXTPTR
+        LDS     $0,X      * ACTIVA EL STACK POINTER
+        LDAA    TCSR      * LEE EL TCSR
+        LDAA    COUNTER   * LEE EL FREE-RUNNING COUNTER
+        RTI
+
+
+
+*[]------------------------------------------[]
+*
+*   WHILE TRUE DO PUERTO_1 := 00000001
+*
+*[]------------------------------------------[]
+TASK_1  LDAA    #1
+        STAA    DATBUS
+        BRA     TASK_1
+
+
+
+*[]------------------------------------------[]
+*
+*   WHILE TRUE DO PUERTO_1 := 00000010
+*
+*[]------------------------------------------[]
+TASK_2  LDAA    #2
+        STAA    DATBUS
+        BRA     TASK_2
+
+
+
+        ORG     SCHVEC
+        FDB     #SC_DS
+
+
+
+        ORG     BOOT
+        FDB     #MASTER
