@@ -84,16 +84,7 @@
 % Inicio del cuerpo del texto %
 %-----------------------------%
 %
-Hace 27 a\~nos yo era un estudiante de segundo semestre de computaci\'on sin m\'as
-conocimiento sobre las materias en curso. Por supuesto, para ese entonces (mediados de la
-d\'ecada de los 1980) la computaci\'on ten\'ia casi seis d\'ecadas de antiguedad como
-disciplina, sobre todo la programaci\'on de computadoras. D\'ecadas de historia que yo ignoraba
-completamente. Fue en esa \'epoca que escuch\'e hablar por primera vez sobre un texto de programación
-de computadoras llamado \textit{The Art of Computer Programming}.
-Su autor era el Prof. Donald Knuth, un matem\'atico quien hab\'ia dedicado gran parte de su
-vida a dise\~nar traductores de lenguajes de alto nivel y assemblers durante los a\~nos 1960. Sus habilidades
-y destrezas las adquir\'o estudando listados assembler de compiladores recientes (para la \'epoca) que usaban
-en el instituto Case donde cursaba estudios universitarios. Uno de esos traductores era el \texttt{IT} (Internal Translator). \\
+ \\
 \\
 
 Knuth narr\'o su primer encuentro con este programa traductor en una \emph{IBM 650}:\\
