@@ -1,0 +1,53 @@
+{[]------------------------------------------[]
+   ALGORITMO DE BUSQUEDA BINARIA IMPLEMENTADO
+   EN EL LENGUAJE ENSAMBLADOR ML1 PARA 
+   MICRON1.
+
+   VARIABLES:
+
+   EN 0040H ESTA EL ELEMENTO A BUSCAR x
+   EN 0041H ESTA EL NUMERO DE ELEMENTOS n
+   EN R1 ESTA LA VARIABLE low
+   EN R2 ESTA LA VARIABLE high
+   EN R3 ESTA LA VARIABLE mid
+   EN 0042H ESTA EL ELEMENTO [0] DE v
+   EN F000H ESTA LA RESPUESTA DEL PROGRAMA
+ []-----------------------------------------[]}
+         CAR       SP = 0FFF0H       {SP <- FFF0H}
+         CAR       BR = 0042H        {BR <- 0042H}
+         CAR       R1 = 0            {R1 <- 0}
+         CAR       R2 = (0041H)      {R2 <- VALOR EN 0041H}
+         DEC       R2                {R2 <- R2 - 1}
+         SAL       WHILE             {-> WHILE}
+
+ACCION:  
+         CAR       R3 = R1           {R3 <- R1}
+         SUM       R2 A R3           {R3 <- R3 + R2}
+         DIV       R3 EN 2           {R3 <- R3 / 2}
+         CAR       X = R3            {X <- R3}
+         CAR       R4 = (BR+X)       {R4 <- VALOR EN BR+X}
+         CMP       (0040H) <-> R4    {COMPARA VALOR EN 0040H CONTRA R4}
+         SGE       ABAJO             {SI ES MAYOR O IGUAL -> ABAJO}
+         CAR       R2 = R3           {R2 <- R3}
+         DEC       R2                {R2 <- R2 - 1}
+         SAL       WHILE             {-> WHILE}
+
+ABAJO:   
+         CMP       (0040H) <-> R4    {COMPARA VALOR EN 0040H CONTRA R4}
+         SBE       FIND              {SI ES MENOR O IGUAL -> FIND}
+         CAR       R1 = R3           {R1 <- R3}
+         INC       R1                {R1 <- R1 + 1}
+         SAL       WHILE             {-> WHILE}
+
+FIND:    
+         ALM       (0F000H) = R3     {F000H <- R3}
+         SAL       TERM              {-> TERM}
+
+WHILE:   
+         CMP       R1 <-> R2         {COMPARA R1 CONTRA R2}
+         SBE       ACCION            {SI ES MENOR O IGUAL -> ACCION}
+         CAR       R4 = -1           {R4 <- -1}
+         ALM       (0F000H) = R4     {F000H <- R4}
+
+TERM:    
+         RTN       STOP              {DETIENE EL PROGRAMA}

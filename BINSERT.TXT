@@ -1,0 +1,47 @@
+         SB     L,<14>          {ESPACIO PARA VARIABLES LOCALES}
+         CARG   4,<1>
+         CARG   B,<60>          {PREPARA EL REGISTRO BASE CON ->a[0]}
+         SAL    FOR1            {PASA A COMPROBAR EL CICLO EXTERNO FOR}
+INSB-    CARG   I,4             {I <- i}
+         CARG   2,(I)           {R2 <- a[i]}
+         ALM    (L+<2>),2       {x <- R2}
+         CARG   3,<0>           {l <- 0}
+         CARG   1,4             {R1 <- i}
+         DC     1               {R1 <- R1 - 1}
+         ALM    (L+<8>),1       {r <- R1}
+         SAL    WHL             {PASA A COMPROBAR EL CICLO INTERNO WHILE}
+BSRCH-   CARG   1,3             {R1 <- l}
+         AD     1,(L+<8>)       {R1 <- l + r}
+         DV     1,<2>           {R1 <- R1 / 2}
+         ALM    (L+<10>),1      {m <- R1}
+         CARG   2,(L+<10>)      {R2 <- m}
+         CARG   1,(L+<2>)       {R1 <- x}
+         CARG   I,2             {I <- m}
+         CMP    1,(I)           {COMPARA R1 CONTRA a[m]}
+         SME    IZQ
+         DC     2               {R2 <- R2 - 1}
+         ALM    (L+<8>),2       {r <- R2}
+         SAL    WHL
+IZQ-     IC     2               {R2 <- R2 + 1}
+         CARG   3,2             {l <- R2}
+WHL-     CARG   1,3             {R1 <- l}
+         CMP    1,(L+<8>)       {COMPARA R1 CONTRA r}
+         SRE    BSRCH
+         CARG   1,4             {R1 <- i}
+         DC     1               {R1 <- R1 - 1}
+         ALM    (L+<4>),1       {j <- R1}
+         SAL    FOR2
+COR-     CARG   X,(L+<4>)       {X <- j}
+         CARG   1,(I)           {R1 <- a[j]}
+         IC     I               {I <- I + 1}
+         ALM    (I),1           {a[j + 1] <- R1}
+FOR2-    CARG   1,(L+<4>)       {R1 <- j}
+         CMP    1,3             {COMPARA R1 CONTRA l}
+         SME    COR
+         CARG   I,3             {I <- l}
+         CARG   1,(L+<2>)       {R1 <- x}
+         ALM    (I),1           {a[l] <- x}
+FOR1-    CARG   1,4             {VERIFICA LA VARIABLE i <= n}
+         CMP    1,(<40>)
+         SRE    INSB            {CONTINUA CON EL SORT}
+         AD     I,<14>          {DESALOJA EL ESPACIO LOCAL}
