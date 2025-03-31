@@ -1,0 +1,99 @@
+%
+\title{BREVE RECUERDO DEL LENGUAJE DE PROGRAMACI\'ON\\
+        \texttt{MIXAL}}
+
+\author{Jos\'e Portillo Lugo\thanks{por publicar.}\\
+     Historia de la computaci\'on\\
+
+\date{Diciembre 5, 2012}
+
+%
+% Ensayo de tabbing para la escritura de codigo en assembler.
+%
+\begin{verbatim}
+Codigo MIX     DIR  Sentencia assembler MIXAL
+-------------- ---- -------------------------------------------------------------------
+                              ORIG  000
++0000 00 00 00 0000 TASA      CON   0
+               0049           ORIG  49
+               0050 STK       ORIG  *+1       Stack de trabajo
+               0052 RESUL     ORIG  *+2       Declaración de simbolos
+               0054 PORC      ORIG  *+2
+               0056 X         ORIG  *+2
+               0058 TEMP      ORIG  *+2
+               0060 Z         ORIG  *+2
+               0062 Y         ORIG  *+2
+               0064 BUFFCRD   ORIG  *+2       Buffer de entrada/salida
+*
+                    I         EQU   1         Se optimiza el uso de I y J,
+                    J         EQU   2         usando los registros rI1 y rI2
+                    CARDRD    EQU   16        Unidad Lectora - Tarjetas
+                    CARDWR    EQU   17        Unidad Perforadora - Tarjetas
+*
+                              ORIG  100       Subrutina - calculo
++0128 00 02 32 0100 FOREXPR   STJ   5F        Establece enlace de la Subrutina
++0052 00 05 33 0101           STZ   RESUL     resul <-- 0
++0001 00 02 49 0102           ENT1  1         i <-- 1
++0008 00 02 50 0103           ENT2  8         j <-- 8
++0002 00 02 55 0104           ENTX  2
++0060 00 05 31 0105           STX   X         x <-- 2
++0003 00 02 55 0106           ENTX  3
++0066 00 05 31 0107           STX   Y         y <-- 3
++0025 00 02 55 0108           ENTX  25
++0064 00 05 31 0109           STX   Z         z <-- 2
++0058 00 05 08 0110           LDA   0,2       j
++0060 00 05 03 0111           MUL   X         x
++0005 00 02 06 0112           SLAX  5
++0054 00 05 24 0113           STA   TEMP      j*x
++0064 00 05 08 0114           LDA   Z         z
++0066 00 05 03 0115           MUL   Y         y
++0005 00 02 06 0116           SLAX  5         z*y
++0062 00 05 01 0117           ADD   TEMP      <-- j*x+z*y
++0052 00 05 24 0118           STA   RESUL
++0126 00 00 39 0119           JMP   4F        Evalua condiciones
++0052 00 05 08 0120 3H        LDA   RESUL     Inicio del ciclo
++0000 00 05 03 0121           MUL   TASA
++0005 00 02 06 0122           SLAX  5
++0100 00 05 04 0123           DIV   100       <-- (resul*tasa)/100
++0054 00 05 24 0124           STA   PORC
++0001 00 01 49 0125           DEC1  1         i--
++0128 00 07 39 0126 4H        J1Z   5F        Termina el ciclo
++0120 00 00 39 0127           JMP   3B        Continua el ciclo
++0001 00 00 39 0128 5H        JMP   *         Enlace de retorno - Subrutina
+*
+                              ORIG  500       Cuerpo principal del programa
++0001 00 02 32 0500 MAIN      STJ   END       Establece enlace - Sistema Operativo NIX
++0000 00 05 33 0501           STZ   TASA
++0054 00 05 33 0502           STZ   PORC
++0053 00 16 34 0503           JBUS  *(CARDRD) Espera por Lectora - Tarjetas
++0067 00 16 36 0504           IN    BUFFCRD(CARDRD) Lectura
++0067 00 02 55 0505           LDX   BUFFCRD
++0000 00 05 15 0506           STX   TASA      Tasa para el calculo
++0100 00 00 39 0507           JMP   FOREXPR   Invoca Subrutina
++0054 00 05 15 0508           LDX   PORC      RX <-- porc
++0067 00 05 31 0509           STX   BUFFCRD   Almacena en buffer salida
++0510 00 17 34 0510           JBUS  *(CARDWR) Espera por perforadora - Tarjetas
++0067 00 17 37 0511           OUT   BUFFCRD(CARDWR) Perfora
++0000 00 02 05 0512           HLT             Enlace de retorno - Sistema Operativo NIX
+                              END   MAIN
+\end{verbatim}
+\\
+\page
+* Fuente en lenguaje C++ simplificado:                                                        \\
+{\obeylines \sfcode`;=3000
+{\bf void main()}
+\{ // Cuerpo principal del programa
+\qquad {\bf int} ${\it tas}=0$, ${\it porc}=0$;\\
+
+\qquad ${\it tas} = getchar()$;
+\qquad forexpr({\it tas}, {\it &porc});
+\qquad putchar({\it &porc});
+\}
+
+{\bf void forexpr}(int tasa, int &porcen)
+\{ // Subrutina - cálculo
+\qquad {\bf int} $i=1$, $j=8$, $resul=0$, $x=2$, $y=3$, $z=25$;\\
+
+\qquad {\bf for}($resul=j*x+z*y&, $porcen=0$; $i \geq 1$; $porcen=(resul*tasa)/100$, i--);
+\}
+\par}
